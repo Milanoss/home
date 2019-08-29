@@ -2,6 +2,9 @@
 #include <HTTPClient.h>
 #include <WebServer.h>
 #include <ArduinoJson.h>
+#include <SPIFFS.h>
+
+#define FILESYSTEM SPIFFS
 
 const char* wifi_name = "TP-LINK_F092"; // Your Wifi network name here
 const char* wifi_pass = "1takovenormalnipripojeni2takovenormalnipripojeni3#";    // Your Wifi network password here
@@ -17,8 +20,8 @@ String thingData[] = {"", "", "", "", "", "", "", ""};
 String lastData[] = {"", "", "", "", "", "", "", ""};
 boolean thingDataValid;
 
-int vent_delay = 30;
-int vent_time = 20;
+int vent_delay = 50 * 1000; // in seconds
+int vent_time = 10 * 1000; // in seconds
 
 int vent_relay_pin = 22;
 
@@ -30,6 +33,8 @@ void setup() {
   pinMode (vent_relay_pin, OUTPUT);
 
   thingDataValid = false;
+
+  FILESYSTEM.begin();
 
   WiFi.begin(wifi_name, wifi_pass);
   Serial.println("Connecting to WiFi..");
@@ -52,7 +57,8 @@ void setup() {
   delay(500);
 
   server.onNotFound(handleNotFound);
-  server.on("/", handleRoot);
+  server.on("/", HTTP_GET, handleRoot);
+  server.on("/api", HTTP_GET, handleApiGet);
   server.begin();
 }
 
@@ -88,10 +94,21 @@ void loopWeather(void *pvParameters) {
     Serial.println("Getting weather");
     Weather weather = getWeather();
     if (weather.valid) {
-      thingDataValid = true;
-      thingData[0] = String(weather.temp);
-      thingData[1] = String(weather.humidity);
-      thingData[2] = String(weather.pressure);
+      String temp = String(weather.temp);
+      if (temp != lastData[0]) {
+        thingDataValid = true;
+        thingData[0] = temp;
+      }
+      String humidity = String(weather.humidity);
+      if (humidity != lastData[1]) {
+        thingDataValid = true;
+        thingData[1] = humidity;
+      }
+      String pressure = String(weather.pressure);
+      if (pressure != lastData[2]) {
+        thingDataValid = true;
+        thingData[2] = pressure;
+      }
     }
     delay(60000);
   }
@@ -130,14 +147,14 @@ void sendDataToThingspeak() {
   if (thingDataValid) {
     HTTPClient httpClient;
     String url = "https://api.thingspeak.com/update?api_key=TRBAF4LV7U76SVST";
-    url += "&field1=" + thingData[0];
-    url += "&field2=" + thingData[1];
-    url += "&field3=" + thingData[2];
-    url += "&field4=" + thingData[3];
-    url += "&field5=" + thingData[4];
-    url += "&field6=" + thingData[5];
-    url += "&field7=" + thingData[6];
-    url += "&field8=" + thingData[7];
+    url += thingData[0] != "" ? "&field1=" + thingData[0] : "";
+    url += thingData[1] != "" ? "&field2=" + thingData[1] : "";
+    url += thingData[2] != "" ? "&field3=" + thingData[2] : "";
+    url += thingData[3] != "" ? "&field4=" + thingData[3] : "";
+    url += thingData[4] != "" ? "&field5=" + thingData[4] : "";
+    url += thingData[5] != "" ? "&field6=" + thingData[5] : "";
+    url += thingData[6] != "" ? "&field7=" + thingData[6] : "";
+    url += thingData[7] != "" ? "&field8=" + thingData[7] : "";
     Serial.println(url);
     httpClient.begin(url);
     int httpCode = httpClient.GET();
@@ -165,10 +182,43 @@ void handleNotFound() {
   server.send(404, "text/plain", "Not found");
 }
 
+bool exists(String path) {
+  bool yes = false;
+  File file = FILESYSTEM.open(path, "r");
+  if (!file.isDirectory()) {
+    yes = true;
+  }
+  file.close();
+  return yes;
+}
+
+bool handleFileRead(String path) {
+  if (path.endsWith("/")) {
+    path += "index.html";
+  }
+  if (exists(path)) {
+    File file = FILESYSTEM.open(path, "r");
+    server.streamFile(file, "text/html");
+    file.close();
+    return true;
+  } else {
+    Serial.println("File not found");
+  }
+  return false;
+}
+
+void handleApiGet() {
+  String json = "{";
+  json += "\"temp\":" + lastData[0];
+  json += ", \"humidity\":" + lastData[1];
+  json += ", \"pressure\":" + lastData[2];
+  json += "}";
+  server.send(200, "text/json", json);
+  json = String();
+}
 void handleRoot() {
-
-  char temp[700];
-
-  snprintf(temp, 700,           "aa %s bb %s cc %s"           , lastData[0], lastData[1], lastData[2]);
-  server.send(200, "text/html", lastData[0]);
+  Serial.println("handleRoor");
+  if (!handleFileRead("/index.html")) {
+    server.send(404, "text/plain", "FileNotFound");
+  }
 }

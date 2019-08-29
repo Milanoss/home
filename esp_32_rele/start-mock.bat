@@ -1,0 +1,1 @@
+json-server --watch mock.json
