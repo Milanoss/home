@@ -123,7 +123,7 @@ Weather getWeather() {
     if (httpCode == HTTP_CODE_OK) {
       String payload = httpClient.getString();
       //      Serial.println(payload);
-      StaticJsonDocument<790> doc;
+      DynamicJsonDocument doc(2048);
       DeserializationError error = deserializeJson(doc, payload);
       if (error) {
         Serial.print(F("deserializeJson() failed: "));
@@ -133,6 +133,7 @@ Weather getWeather() {
         int pressure = doc["main"]["pressure"];
         int humidity = doc["main"]["humidity"];
         httpClient.end();
+        payload = String();
         return {true, pressure, humidity, temp};
       }
     } else {
