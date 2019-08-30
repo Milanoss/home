@@ -35,10 +35,20 @@ struct dstRule StartRule = {"CEST", Last, Sun, Mar, 2, 3600}; // Central Europea
 struct dstRule EndRule = {"CET", Last, Sun, Oct, 2, 0};       // Central European Time = UTC/GMT +1 hour
 simpleDSTadjust dstAdjusted(StartRule, EndRule);
 
+int boostPin = 18;
+boolean boostPressed = false;
+
+void IRAM_ATTR isr() {
+  boostPressed = true;
+}
+
 void setup() {
   Serial.begin(115200);
 
   pinMode (vent_relay_pin, OUTPUT);
+
+  pinMode (boostPin, INPUT_PULLUP);
+  attachInterrupt(boostPin, isr, FALLING);
 
   thingDataValid = false;
 
@@ -76,6 +86,7 @@ void setup() {
 
 void loop() {
   server.handleClient();
+  handleBoost();
   delay(1);
 }
 
@@ -138,6 +149,14 @@ void loopWeather(void *pvParameters) {
       }
     }
     delay(60000);
+  }
+}
+
+void handleBoost() {
+  if (boostPressed) {
+    Serial.println("BOOST");
+    delay(500);
+    boostPressed = false;
   }
 }
 
@@ -252,19 +271,7 @@ void handleApiGetConfig() {
 }
 
 void handleApiPutConfig() {
-  time_t t = now();
-  String json = "{";
-  json += "\"time\":{";
-  json += "\"year\":" + String(year(t)) + ",\n";
-  json += "\"month\":" + String(month(t)) + ",\n";
-  json += "\"day\":" + String(day(t)) + ",\n";
-  json += "\"hour\":" + String(hour(t)) + ",\n";
-  json += "\"minute\":" + String(minute(t)) + ",\n";
-  json += "\"second\":" + String(second(t)) + "\n";
-  json += "}";
-  json += "}";
-  server.send(200, "text/json", json);
-  json = String();
+  server.send(200, "text/plain", "");
 }
 
 void handleApiGet() {
