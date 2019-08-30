@@ -36,6 +36,7 @@ struct dstRule EndRule = {"CET", Last, Sun, Oct, 2, 0};       // Central Europea
 simpleDSTadjust dstAdjusted(StartRule, EndRule);
 
 int boostPin = 18;
+int boostOutPin = 19;
 boolean boostPressed = false;
 
 void IRAM_ATTR isr() {
@@ -79,6 +80,7 @@ void setup() {
 
   server.onNotFound(handleNotFound);
   server.on("/", HTTP_GET, handleRoot);
+  server.on("/config.html", HTTP_GET, handleConfig);
   server.on("/api/data", HTTP_GET, handleApiGet);
   server.on("/api/config", HTTP_GET, handleApiGetConfig);
   server.begin();
@@ -156,6 +158,9 @@ void handleBoost() {
   if (boostPressed) {
     Serial.println("BOOST");
     delay(500);
+    digitalWrite(boostOutPin, LOW);
+    delay(500);
+    digitalWrite(vent_relay_pin, HIGH);
     boostPressed = false;
   }
 }
@@ -283,8 +288,13 @@ void handleApiGet() {
   server.send(200, "text/json", json);
   json = String();
 }
+
+void handleConfig() {
+  if (!handleFileRead("/config.html")) {
+    server.send(404, "text/plain", "FileNotFound");
+  }
+}
 void handleRoot() {
-  Serial.println("handleRoor");
   if (!handleFileRead("/index.html")) {
     server.send(404, "text/plain", "FileNotFound");
   }

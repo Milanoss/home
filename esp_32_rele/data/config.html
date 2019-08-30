@@ -14,7 +14,7 @@
           }
         }
       };
-      xh.open("GET", "http://localhost:3000/api/config", true);
+      xh.open("GET", "/api/config", true);
       xh.send(null);
     };
     
@@ -24,7 +24,7 @@
       data.month  = 8;
       var json = JSON.stringify(data);
       var xh = new XMLHttpRequest();
-      xh.open("PUT", "http://localhost:3000/api/config", true);
+      xh.open("PUT", "/api/config", true);
       xh.setRequestHeader('Content-type','application/json; charset=utf-8');
       xh.onload = function () {
 	    var users = JSON.parse(xhr.responseText);
