@@ -3,6 +3,8 @@
 #include <WebServer.h>
 #include <ArduinoJson.h>
 #include <SPIFFS.h>
+#include <TimeLib.h>
+#include <simpleDSTadjust.h>
 
 #define FILESYSTEM SPIFFS
 
@@ -20,12 +22,18 @@ String thingData[] = {"", "", "", "", "", "", "", ""};
 String lastData[] = {"", "", "", "", "", "", "", ""};
 boolean thingDataValid;
 
-int vent_delay = 50 * 1000; // in seconds
-int vent_time = 10 * 1000; // in seconds
+int vent_delay = 50 * 60; // in seconds
+int vent_time = 10 * 60; // in seconds
 
 int vent_relay_pin = 22;
 
 WebServer server(80);
+
+#define NTP_SERVERS "us.pool.ntp.org", "pool.ntp.org", "time.nist.gov"
+#define timezone +1
+struct dstRule StartRule = {"CEST", Last, Sun, Mar, 2, 3600}; // Central European Summer Time = UTC/GMT +2 hours
+struct dstRule EndRule = {"CET", Last, Sun, Oct, 2, 0};       // Central European Time = UTC/GMT +1 hour
+simpleDSTadjust dstAdjusted(StartRule, EndRule);
 
 void setup() {
   Serial.begin(115200);
@@ -56,14 +64,33 @@ void setup() {
   xTaskCreatePinnedToCore(loopThingSpeakSend, "loopThingSpeakSend", 8192, NULL, 2, NULL, 0);
   delay(500);
 
+  xTaskCreatePinnedToCore(loopUpdateTime, "loopUpdateTime", 8192, NULL, 2, NULL, 0);
+  delay(500);
+
   server.onNotFound(handleNotFound);
   server.on("/", HTTP_GET, handleRoot);
-  server.on("/api", HTTP_GET, handleApiGet);
+  server.on("/api/data", HTTP_GET, handleApiGet);
+  server.on("/api/config", HTTP_GET, handleApiGetConfig);
   server.begin();
 }
 
 void loop() {
   server.handleClient();
+  delay(1);
+}
+
+void loopUpdateTime(void *pvParameters) {
+  while (true) {
+    configTime(timezone * 3600, 0, NTP_SERVERS);
+    delay(500);
+    while (!time(nullptr)) {
+      Serial.print("#");
+      delay(1000);
+    }
+    time_t t = dstAdjusted.time(NULL);
+    setTime(hour(t) + 1, minute(t), second(t), day(t), month(t), year(t));
+    delay(10000);
+  }
 }
 
 void loopThingSpeakSend(void *pvParameters) {
@@ -206,6 +233,38 @@ bool handleFileRead(String path) {
     Serial.println("File not found");
   }
   return false;
+}
+
+void handleApiGetConfig() {
+  time_t t = now();
+  String json = "{";
+  json += "\"time\":{";
+  json += "\"year\":" + String(year(t)) + ",\n";
+  json += "\"month\":" + String(month(t)) + ",\n";
+  json += "\"day\":" + String(day(t)) + ",\n";
+  json += "\"hour\":" + String(hour(t)) + ",\n";
+  json += "\"minute\":" + String(minute(t)) + ",\n";
+  json += "\"second\":" + String(second(t)) + "\n";
+  json += "}";
+  json += "}";
+  server.send(200, "text/json", json);
+  json = String();
+}
+
+void handleApiPutConfig() {
+  time_t t = now();
+  String json = "{";
+  json += "\"time\":{";
+  json += "\"year\":" + String(year(t)) + ",\n";
+  json += "\"month\":" + String(month(t)) + ",\n";
+  json += "\"day\":" + String(day(t)) + ",\n";
+  json += "\"hour\":" + String(hour(t)) + ",\n";
+  json += "\"minute\":" + String(minute(t)) + ",\n";
+  json += "\"second\":" + String(second(t)) + "\n";
+  json += "}";
+  json += "}";
+  server.send(200, "text/json", json);
+  json = String();
 }
 
 void handleApiGet() {

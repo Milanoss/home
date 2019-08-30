@@ -1,0 +1,56 @@
+<html>
+  <head>
+<script type="text/javascript">
+  var esp32time;
+  function loadValues(){
+      var xh = new XMLHttpRequest();
+      xh.onreadystatechange = function(){
+        if (xh.readyState == 4){
+          if(xh.status == 200) {
+            var res = JSON.parse(xh.responseText);
+            esp32time = res.time;
+            setValues();
+          }
+        }
+      };
+      xh.open("GET", "http://localhost:3000/api/config", true);
+      xh.send(null);
+    };
+  function putValues(){
+      var data = {};
+data.year = 2019;
+data.month  = 8;
+var json = JSON.stringify(data);
+      var xh = new XMLHttpRequest();
+      xh.onreadystatechange = function(){
+        if (xh.readyState == 4){
+          if(xh.status == 200) {
+            var res = JSON.parse(xh.responseText);
+            esp32time = res.time;
+            setValues();
+          }
+        }
+      };
+      xh.open("PUT", "http://localhost:3000/api/config", true);
+      xh.setRequestHeader('Content-type','application/json; charset=utf-8');
+      xh.onload = function () {
+	    var users = JSON.parse(xhr.responseText);
+	    if (xh.readyState == 4 && xhr.status == "201") {
+		  console.table(users);
+	    } else {
+		  console.error(users);
+	   }
+     }
+     xh.send(json);
+  };
+  function setValues() {
+    document.getElementById("esp32time").innerText=esp32time;
+  }
+  loadValues();
+  var date = new Date();
+</script>
+  </head>
+  <body>
+    <div>Time: <span id="esp32time"></span></div> 
+  </body>
+</html>

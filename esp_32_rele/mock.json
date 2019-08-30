@@ -1,8 +1,18 @@
 {
-  "api":{ 
+  "data":{ 
   "temp": 24.00,
   "humidity": 61,
   "pressure": 1019
+  },
+  "config": {
+    "time": {
+       "year": 2019,
+       "month": 8,
+       "day": 30,
+       "hour": 8,
+       "minute": 18,
+       "sucond": 33
+    }
   }
   
 }
