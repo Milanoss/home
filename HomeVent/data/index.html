@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Weather Station</title>
+  <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+  <link href='https://fonts.googleapis.com/css?family=Open+Sans:300,400,600' rel='stylesheet' />
+  <style>
+    html {
+      font-family: 'Open Sans', sans-serif;
+      display: block;
+      margin: 0px auto;
+      text-align: center;
+      color: #444444;
+    }
+
+    body {
+      margin: 0px;
+    }
+
+    h1 {
+      margin: 50px auto 30px;
+    }
+
+    .side-by-side {
+      display: table-cell;
+      vertical-align: middle;
+      position: relative;
+    }
+
+    .text {
+      font-weight: 600;
+      font-size: 19px;
+      width: 200px;
+    }
+
+    .reading {
+      font-weight: 300;
+      font-size: 50px;
+      padding-right: 25px;
+    }
+
+    .temperature .reading {
+      color: #F29C1F;
+    }
+
+    .humidity .reading {
+      color: #3B97D3;
+    }
+
+    .pressure .reading {
+      color: #26B99A;
+    }
+
+    .altitude .reading {
+      color: #955BA5;
+    }
+
+    .superscript {
+      font-size: 17px;
+      font-weight: 600;
+      position: absolute;
+      top: 10px;
+    }
+
+    .data {
+      padding: 10px;
+      display: flex;
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .container {
+      display: table;
+      margin: 0 auto;
+      width: 100%;
+      max-width: 500px;
+      ;
+    }
+
+    .icon {
+      width: 65px
+    }
+
+    .btn {
+      border: 2px solid black;
+      background-color: white;
+      color: black;
+      padding: 14px 28px;
+      margin: 10px;
+      font-size: 16px;
+      cursor: pointer;
+      width: 150px;
+    }
+
+    .success {
+      border-color: #4CAF50;
+      color: green;
+    }
+
+    .success:hover {
+      background-color: #4CAF50;
+      color: white;
+    }
+
+    .danger {
+      border-color: #f44336;
+      color: red
+    }
+
+    .danger:hover {
+      background: #f44336;
+      color: white;
+    }
+
+    .slider {
+      -webkit-appearance: none;
+      appearance: none;
+      height: 25px;
+      background: #d3d3d3;
+      outline: none;
+      opacity: 0.7;
+      -webkit-transition: .2s;
+      transition: opacity .2s;
+      margin: 10px;
+    }
+
+    .slider:hover {
+      opacity: 1;
+    }
+
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 40px;
+      height: 40px;
+      background: #4CAF50;
+      cursor: pointer;
+    }
+
+    .slider::-moz-range-thumb {
+      width: 40px;
+      height: 40px;
+      background: #4CAF50;
+      cursor: pointer;
+    }
+
+    .number {
+      padding-right: 30px;
+    }
+
+    .buttons {
+      text-align: left;
+    }
+
+    .vent {
+      display: flex;
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: center;
+    }
+  </style>
+  <script type="text/javascript">
+    var boost, ventilation;
+    var temp, humidity, pressure;
+    var esp32time;
+    function loadValues() {
+      var xh = new XMLHttpRequest();
+      xh.onreadystatechange = function () {
+        if (xh.readyState == 4) {
+          if (xh.status == 200) {
+            var res = JSON.parse(xh.responseText);
+            temp = res.data.temp;
+            humidity = res.data.humidity;
+            pressure = res.data.pressure;
+            boost = res.action.boost;
+            ventilation = res.action.ventilation;
+            var t = res.config.time;
+            esp32time = t.hour + ":" + t.minute + ":" + t.second + " " + t.day + "-" + t.month + "-" + t.year;
+            setValues();
+          }
+        }
+      };
+      xh.open("GET", "/api", true);
+      xh.send(null);
+    };
+    function setValues() {
+      document.getElementById("temp").innerText = temp;
+      document.getElementById("humidity").innerText = humidity;
+      document.getElementById("esp32time").innerText = esp32time;
+      if (ventilation == "1") {
+        document.getElementById("ventlight").style.visibility = "visible";
+      } else {
+        document.getElementById("ventlight").style.visibility = "hidden";
+      }
+      if (boost == "1") {
+        document.getElementById("boostlight").style.visibility = "visible";
+      } else {
+        document.getElementById("boostlight").style.visibility = "hidden";
+      }
+    }
+    function onBodyLoad() {
+      loadValues();
+      setValues();
+    }
+
+    function sendRequest(param, value) {
+      var xh = new XMLHttpRequest();
+      xh.onreadystatechange = function () {
+        if (xh.readyState == 4) {
+          if (xh.status == 200) {
+          }
+        }
+      };
+      xh.open("PUT", "/api?" + param + "=" + value, true);
+      xh.send(null);
+    };
+
+    setInterval(onBodyLoad, 10000);
+  </script>
+</head>
+
+<body onload="onBodyLoad()">
+  <div class='container'>
+    <div class="buttons">
+      <div class="vent">
+        <div>
+          <button class="btn success"
+            onclick="sendRequest('ventTime', document.getElementById('rangevalue').innerText)">Ventilation</button>
+          <svg id="ventlight" version="1.1" xmlns="http://www.w3.org/2000/svg"
+            xmlns:xlink="http://www.w3.org/1999/xlink" width="20px" height="20px" x="0px" y="0px" viewBox="0 0 512 512"
+            style="enable-background:new 0 0 512 512;visibility: hidden;" xml:space="preserve">
+            <g id="lightening">
+              <path d="M400.268,175.599c-1.399-3.004-4.412-4.932-7.731-4.932h-101.12l99.797-157.568c1.664-2.628,1.766-5.956,0.265-8.678
+			C389.977,1.69,387.109,0,384.003,0H247.47c-3.234,0-6.187,1.826-7.637,4.719l-128,256c-1.323,2.637-1.178,5.777,0.375,8.294
+			c1.562,2.517,4.301,4.053,7.262,4.053h87.748l-95.616,227.089c-1.63,3.883-0.179,8.388,3.413,10.59
+			c1.382,0.845,2.918,1.254,4.446,1.254c2.449,0,4.864-1.05,6.537-3.029l273.067-324.267
+			C401.206,182.161,401.667,178.611,400.268,175.599z" fill="#000000" />
+            </g>
+          </svg>
+        </div>
+        <input type="range" min="0" max="60" value="10" class="slider" id="myRange" oninput="rangevalue.value=value">
+        <output id="rangevalue" class="number">10</output>
+      </div>
+      <div>
+        <button class="btn danger" onclick="sendRequest('boost', 'true')">Boost</button>
+        <svg id="boostlight" width="20px" height="20px" x="0px" y="0px" viewBox="0 0 512 512"
+          style="visibility: hidden;">
+          <use xlink:href="#lightening" fill="#000000" /></svg>
+      </div>
+    </div>
+    <div class='data temperature'>
+      <div class='side-by-side icon'>
+        <svg enable-background='new 0 0 19.438 54.003' height=54.003px id=Layer_1 version=1.1
+          viewBox='0 0 19.438 54.003' width=19.438px x=0px xml:space=preserve xmlns=http://www.w3.org/2000/svg
+          xmlns:xlink=http://www.w3.org/1999/xlink y=0px>
+          <g>
+            <path d='M11.976,8.82v-2h4.084V6.063C16.06,2.715,13.345,0,9.996,0H9.313C5.965,0,3.252,2.715,3.252,6.063v30.982
+C1.261,38.825,0,41.403,0,44.286c0,5.367,4.351,9.718,9.719,9.718c5.368,0,9.719-4.351,9.719-9.718
+c0-2.943-1.312-5.574-3.378-7.355V18.436h-3.914v-2h3.914v-2.808h-4.084v-2h4.084V8.82H11.976z M15.302,44.833
+c0,3.083-2.5,5.583-5.583,5.583s-5.583-2.5-5.583-5.583c0-2.279,1.368-4.236,3.326-5.104V24.257C7.462,23.01,8.472,22,9.719,22
+s2.257,1.01,2.257,2.257V39.73C13.934,40.597,15.302,42.554,15.302,44.833z' fill=#F29C21 />
+          </g>
+        </svg>
+      </div>
+      <div class='side-by-side reading' id="temp">-</div>
+      <div class='side-by-side reading'>&deg;C</div>
+    </div>
+    <div class='data humidity'>
+      <div class='side-by-side icon'>
+        <svg enable-background='new 0 0 29.235 40.64' height=40.64px id=Layer_1 version=1.1 viewBox='0 0 29.235 40.64'
+          width=29.235px x=0px xml:space=preserve xmlns=http://www.w3.org/2000/svg
+          xmlns:xlink=http://www.w3.org/1999/xlink y=0px>
+          <path d='M14.618,0C14.618,0,0,17.95,0,26.022C0,34.096,6.544,40.64,14.618,40.64s14.617-6.544,14.617-14.617
+C29.235,17.95,14.618,0,14.618,0z M13.667,37.135c-5.604,0-10.162-4.56-10.162-10.162c0-0.787,0.638-1.426,1.426-1.426
+c0.787,0,1.425,0.639,1.425,1.426c0,4.031,3.28,7.312,7.311,7.312c0.787,0,1.425,0.638,1.425,1.425
+C15.093,36.497,14.455,37.135,13.667,37.135z' fill=#3C97D3 />
+        </svg>
+      </div>
+      <div class='side-by-side reading' id="humidity">-</div>
+      <div class='side-by-side reading'>%</div>
+    </div>
+  </div>
+  <div><span id="esp32time"></span></div>
+</body>
+
+</html>

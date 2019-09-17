@@ -1,10 +1,12 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
-#include <WebServer.h>
-#include <ArduinoJson.h>
+#include "ArduinoJson.h"
 #include <SPIFFS.h>
 #include <TimeLib.h>
 #include <simpleDSTadjust.h>
+#include "AsyncJson.h"
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
 
 #define FILESYSTEM SPIFFS
 
@@ -26,8 +28,12 @@ int vent_delay = 50 * 60; // in seconds
 int vent_time = 10 * 60; // in seconds
 
 int vent_relay_pin = 22;
+boolean ventRunning = true;
 
-WebServer server(80);
+int ventConfig[] = {10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10};
+boolean vent = false;
+
+AsyncWebServer server(80);
 
 #define NTP_SERVERS "us.pool.ntp.org", "pool.ntp.org", "time.nist.gov"
 #define timezone +1
@@ -78,22 +84,28 @@ void setup() {
   xTaskCreatePinnedToCore(loopUpdateTime, "loopUpdateTime", 8192, NULL, 2, NULL, 0);
   delay(500);
 
-  server.onNotFound(handleNotFound);
-  server.on("/", HTTP_GET, handleRoot);
-  server.on("/config.html", HTTP_GET, handleConfig);
-  server.on("/api/data", HTTP_GET, handleApiGet);
-  server.on("/api/config", HTTP_GET, handleApiGetConfig);
+  server.onNotFound([](AsyncWebServerRequest * request) {
+    request->send(404);
+  });
+  server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest * request) {
+    request->send(SPIFFS, "/favicon.ico", "image/x-icon");
+  });
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
+    request->send(SPIFFS, "/index.html", "text/html");
+  });
+  server.on("/api", HTTP_GET, handleApiGet);
+  server.on("/api", HTTP_PUT, handleApiPut);
   server.begin();
 }
 
 void loop() {
-  server.handleClient();
   handleBoost();
   delay(1);
 }
 
 void loopUpdateTime(void *pvParameters) {
   while (true) {
+    Serial.println("loopUpdateTime");
     configTime(timezone * 3600, 0, NTP_SERVERS);
     delay(500);
     while (!time(nullptr)) {
@@ -114,19 +126,57 @@ void loopThingSpeakSend(void *pvParameters) {
 }
 
 void loopVent(void *pvParameters) {
+  time_t lastStart = now();
   while (true) {
-    Serial.println("Starting vent");
-    digitalWrite(vent_relay_pin, LOW);
-    thingDataValid = true;
-    thingData[3] = "1";
-    delay(vent_time * 1000);
+    if (ventRunning) {
+      Serial.println("Vent running");
+      time_t t = now();
+      int h = hour(t);
+      int m = minute(t);
+      int ventTime = ventConfig[h]; // time in minutes
 
-    Serial.println("Stopping vent");
-    digitalWrite(vent_relay_pin, HIGH);
-    thingDataValid = true;
-    thingData[3] = "0";
-    delay(vent_delay * 1000);
+      TimeElements te;
+      breakTime(lastStart, te);
+      te.Minute = te.Minute + 56;
+      time_t nextStop = makeTime(te);
+      Serial.println("nextStop: " + String(hour(nextStop)));
+      Serial.println("nextStop: " + String(minute(nextStop)));
+      Serial.println("nextStop: " + String(second(nextStop)));
+      Serial.println("lastStart: " + String(hour(lastStart)));
+      Serial.println("lastStart: " + String(minute(lastStart)));
+      Serial.println("lastStart: " + String(second(lastStart)));
+      ventRunning = false;
+    } else {
+      Serial.println("Vent not running");
+      lastStart = now();
+      ventRunning = true;
+    }
+    //    runVent(vent_time, vent_delay);
+    delay(10000);
   }
+}
+
+void runVent(int vt, int vd) {
+  startVent(vt);
+  stopVent(vd);
+}
+
+void startVent(int vt) {
+  Serial.println("Starting vent");
+  vent = true;
+  digitalWrite(vent_relay_pin, LOW);
+  thingDataValid = true;
+  thingData[3] = "1";
+  delay(vt * 1000);
+}
+
+void stopVent(int vd) {
+  Serial.println("Stopping vent");
+  digitalWrite(vent_relay_pin, HIGH);
+  vent = false;
+  thingDataValid = true;
+  thingData[3] = "0";
+  delay(vd * 1000);
 }
 
 void loopWeather(void *pvParameters) {
@@ -230,38 +280,41 @@ void sendDataToThingspeak() {
   }
 }
 
-void handleNotFound() {
-  server.send(404, "text/plain", "Not found");
+void handleApiPut(AsyncWebServerRequest *request) {
+  if (request->hasParam("boost")) {
+    AsyncWebParameter* b = request->getParam("boost");
+    if (b->value().c_str() == "true") {
+      boostPressed = true;
+    }
+  }
+  if (request->hasParam("vent") && request->hasParam("ventTime")) {
+    AsyncWebParameter* v = request->getParam("vent");
+    AsyncWebParameter* vt = request->getParam("ventTime");
+    Serial.println(v->value().c_str());
+    Serial.println(vt->value().c_str());
+  }
+  for (int i = 0; i < 24; i++) {
+    if (request->hasParam(String(i))) {
+      AsyncWebParameter* t = request->getParam(String(i));
+      Serial.println(t->value().c_str());
+    }
+  }
+  request->send(200);
 }
 
-bool exists(String path) {
-  bool yes = false;
-  File file = FILESYSTEM.open(path, "r");
-  if (!file.isDirectory()) {
-    yes = true;
-  }
-  file.close();
-  return yes;
-}
-
-bool handleFileRead(String path) {
-  if (path.endsWith("/")) {
-    path += "index.html";
-  }
-  if (exists(path)) {
-    File file = FILESYSTEM.open(path, "r");
-    server.streamFile(file, "text/html");
-    file.close();
-    return true;
-  } else {
-    Serial.println("File not found");
-  }
-  return false;
-}
-
-void handleApiGetConfig() {
+void handleApiGet(AsyncWebServerRequest *request) {
   time_t t = now();
   String json = "{";
+  json += "\"data\":{";
+  json += "\"temp\":" + lastData[0];
+  json += ", \"humidity\":" + lastData[1];
+  json += ", \"pressure\":" + lastData[2];
+  json += "},";
+  json += "  \"action\":{";
+  json += "    \"boost\":" + String(boostPressed);
+  json += ",    \"ventilation\":" + String(vent);
+  json += "   },";
+  json += "  \"config\":{";
   json += "\"time\":{";
   json += "\"year\":" + String(year(t)) + ",\n";
   json += "\"month\":" + String(month(t)) + ",\n";
@@ -269,33 +322,37 @@ void handleApiGetConfig() {
   json += "\"hour\":" + String(hour(t)) + ",\n";
   json += "\"minute\":" + String(minute(t)) + ",\n";
   json += "\"second\":" + String(second(t)) + "\n";
+  json += "},";
+  json += "\"ventilation\":{";
+  json += "   \"0\":" + String(ventConfig[0]);
+  json += ",   \"1\":" + String(ventConfig[1]);
+  json += ",   \"2\":" + String(ventConfig[2]);
+  json += ",   \"3\":" + String(ventConfig[3]);
+  json += ",   \"4\":" + String(ventConfig[4]);
+  json += ",   \"5\":" + String(ventConfig[5]);
+  json += ",   \"6\":" + String(ventConfig[6]);
+  json += ",   \"7\":" + String(ventConfig[7]);
+  json += ",   \"8\":" + String(ventConfig[8]);
+  json += ",   \"9\":" + String(ventConfig[9]);
+  json += ",   \"10\":" + String(ventConfig[10]);
+  json += ",   \"11\":" + String(ventConfig[11]);
+  json += ",   \"12\":" + String(ventConfig[12]);
+  json += ",   \"13\":" + String(ventConfig[13]);
+  json += ",   \"14\":" + String(ventConfig[14]);
+  json += ",   \"15\":" + String(ventConfig[15]);
+  json += ",   \"16\":" + String(ventConfig[16]);
+  json += ",   \"17\":" + String(ventConfig[17]);
+  json += ",   \"18\":" + String(ventConfig[18]);
+  json += ",   \"19\":" + String(ventConfig[19]);
+  json += ",   \"20\":" + String(ventConfig[20]);
+  json += ",   \"21\":" + String(ventConfig[21]);
+  json += ",   \"22\":" + String(ventConfig[22]);
+  json += ",   \"23\":" + String(ventConfig[23]);
+  json += "    }";
+  json += "  }";
   json += "}";
-  json += "}";
-  server.send(200, "text/json", json);
-  json = String();
-}
 
-void handleApiPutConfig() {
-  server.send(200, "text/plain", "");
-}
-
-void handleApiGet() {
-  String json = "{";
-  json += "\"temp\":" + lastData[0];
-  json += ", \"humidity\":" + lastData[1];
-  json += ", \"pressure\":" + lastData[2];
-  json += "}";
-  server.send(200, "text/json", json);
-  json = String();
-}
-
-void handleConfig() {
-  if (!handleFileRead("/config.html")) {
-    server.send(404, "text/plain", "FileNotFound");
-  }
-}
-void handleRoot() {
-  if (!handleFileRead("/index.html")) {
-    server.send(404, "text/plain", "FileNotFound");
-  }
+  AsyncResponseStream *response = request->beginResponseStream("text/json");
+  response->print(json);
+  request->send(response);
 }
