@@ -1,1 +1,1 @@
-json-server --watch mock.json  --routes routes.json
+json-server --watch mock.json  

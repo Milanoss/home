@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Weather Station</title>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+    <link href='https://fonts.googleapis.com/css?family=Open+Sans:300,400,600' rel='stylesheet' />
+    <link rel="stylesheet" href="style.css">
+    <script type="text/javascript">
+        var boost, ventilation;
+        var temp, humidity, pressure;
+        var esp32time, ventConfig, boostTime;
+        function loadValues() {
+            var xh = new XMLHttpRequest();
+            xh.onreadystatechange = function () {
+                if (xh.readyState == 4) {
+                    if (xh.status == 200) {
+                        var res = JSON.parse(xh.responseText);
+                        var t = res.config.time;
+                        esp32time = t.hour + ":" + t.minute + ":" + t.second + " " + t.day + "-" + t.month + "-" + t.year;
+                        ventConfig = res.config.ventilation;
+                        boostTime = res.config.boost.time;
+                        setValues();
+                    }
+                }
+            };
+            xh.open("GET", "/api", true);
+            xh.send(null);
+        };
+        function setValues() {
+            document.getElementById("esp32time").innerText = esp32time;
+            document.getElementById("boostTime").value = boostTime;
+            document.getElementById("boostTimeValue").innerText = boostTime;
+            for (i = 0; i < 24; i++) {
+                document.getElementById("ventConfig" + i).value = ventConfig[i];
+                document.getElementById("ventConfig" + i + "value").innerText = ventConfig[i];
+            }
+        }
+        function onBodyLoad() {
+            loadValues();
+        }
+
+        function sendRequest() {
+            var xh = new XMLHttpRequest();
+            xh.onreadystatechange = function () {
+                if (xh.readyState == 4) {
+                    if (xh.status == 200) {
+                    }
+                }
+            };
+            var url = "/api?";
+            for (i = 0; i < 24; i++) {
+                url = url + i + "=" + document.getElementById("ventConfig" + i + "value").innerText + "&";
+            }
+            url = url + "boostTime=" + document.getElementById("boostTimeValue").innerText + "&";
+            xh.open("PUT", url, true);
+            xh.send(null);
+        };
+    </script>
+</head>
+
+<body onload="onBodyLoad()">
+    <div class='container'>
+        <button class="btn success" onclick="location.href='/';">Back</button>
+        <button class="btn success" onclick="sendRequest();location.href='/';">Save</button>
+        <div class="vent">
+            <span class="hour">0</span>
+            <input type="range" min="0" max="60" value="10" class="slider" id="ventConfig0"
+                oninput="ventConfig0value.value=value">
+            <output id="ventConfig0value" class="number">-</output>
+        </div>
+        <div class="vent">
+            <span class="hour">1</span>
+            <input type="range" min="0" max="60" value="10" class="slider" id="ventConfig1"
+                oninput="ventConfig1value.value=value">
+            <output id="ventConfig1value" class="number">-</output>
+        </div>
+        <div class="vent">
+            <span class="hour">2</span>
+            <input type="range" min="0" max="60" value="10" class="slider" id="ventConfig2"
+                oninput="ventConfig2value.value=value">
+            <output id="ventConfig2value" class="number">-</output>
+        </div>
+        <div class="vent">
+            <span class="hour">3</span>
+            <input type="range" min="0" max="60" value="10" class="slider" id="ventConfig3"
+                oninput="ventConfig3value.value=value">
+            <output id="ventConfig3value" class="number">-</output>
+        </div>
+        <div class="vent">
+            <span class="hour">4</span>
+            <input type="range" min="0" max="60" value="10" class="slider" id="ventConfig4"
+                oninput="ventConfig4value.value=value">
+            <output id="ventConfig4value" class="number">-</output>
+        </div>
+        <div class="vent">
+            <span class="hour">5</span>
+            <input type="range" min="0" max="60" value="10" class="slider" id="ventConfig5"
+                oninput="ventConfig5value.value=value">
+            <output id="ventConfig5value" class="number">-</output>
+        </div>
+        <div class="vent">
+            <span class="hour">6</span>
+            <input type="range" min="0" max="60" value="10" class="slider" id="ventConfig6"
+                oninput="ventConfig6value.value=value">
+            <output id="ventConfig6value" class="number">-</output>
+        </div>
+        <div class="vent">
+            <span class="hour">7</span>
+            <input type="range" min="0" max="60" value="10" class="slider" id="ventConfig7"
+                oninput="ventConfig7value.value=value">
+            <output id="ventConfig7value" class="number">-</output>
+        </div>
+        <div class="vent">
+            <span class="hour">8</span>
+            <input type="range" min="0" max="60" value="10" class="slider" id="ventConfig8"
+                oninput="ventConfig8value.value=value">
+            <output id="ventConfig8value" class="number">-</output>
+        </div>
+        <div class="vent">
+            <span class="hour">9</span>
+            <input type="range" min="0" max="60" value="10" class="slider" id="ventConfig9"
+                oninput="ventConfig9value.value=value">
+            <output id="ventConfig9value" class="number">-</output>
+        </div>
+        <div class="vent">
+            <span class="hour">10</span>
+            <input type="range" min="0" max="60" value="10" class="slider" id="ventConfig10"
+                oninput="ventConfig10value.value=value">
+            <output id="ventConfig10value" class="number">-</output>
+        </div>
+        <div class="vent">
+            <span class="hour">11</span>
+            <input type="range" min="0" max="60" value="10" class="slider" id="ventConfig11"
+                oninput="ventConfig11value.value=value">
+            <output id="ventConfig11value" class="number">-</output>
+        </div>
+        <div class="vent">
+            <span class="hour">12</span>
+            <input type="range" min="0" max="60" value="10" class="slider" id="ventConfig12"
+                oninput="ventConfig12value.value=value">
+            <output id="ventConfig12value" class="number">-</output>
+        </div>
+        <div class="vent">
+            <span class="hour">13</span>
+            <input type="range" min="0" max="60" value="10" class="slider" id="ventConfig13"
+                oninput="ventConfig13value.value=value">
+            <output id="ventConfig13value" class="number">-</output>
+        </div>
+        <div class="vent">
+            <span class="hour">14</span>
+            <input type="range" min="0" max="60" value="10" class="slider" id="ventConfig14"
+                oninput="ventConfig14value.value=value">
+            <output id="ventConfig14value" class="number">-</output>
+        </div>
+        <div class="vent">
+            <span class="hour">15</span>
+            <input type="range" min="0" max="60" value="10" class="slider" id="ventConfig15"
+                oninput="ventConfig15value.value=value">
+            <output id="ventConfig15value" class="number">-</output>
+        </div>
+        <div class="vent">
+            <span class="hour">16</span>
+            <input type="range" min="0" max="60" value="10" class="slider" id="ventConfig16"
+                oninput="ventConfig16value.value=value">
+            <output id="ventConfig16value" class="number">-</output>
+        </div>
+        <div class="vent">
+            <span class="hour">17</span>
+            <input type="range" min="0" max="60" value="10" class="slider" id="ventConfig17"
+                oninput="ventConfig17value.value=value">
+            <output id="ventConfig17value" class="number">-</output>
+        </div>
+        <div class="vent">
+            <span class="hour">18</span>
+            <input type="range" min="0" max="60" value="10" class="slider" id="ventConfig18"
+                oninput="ventConfig18value.value=value">
+            <output id="ventConfig18value" class="number">-</output>
+        </div>
+        <div class="vent">
+            <span class="hour">19</span>
+            <input type="range" min="0" max="60" value="10" class="slider" id="ventConfig19"
+                oninput="ventConfig19value.value=value">
+            <output id="ventConfig19value" class="number">-</output>
+        </div>
+        <div class="vent">
+            <span class="hour">20</span>
+            <input type="range" min="0" max="60" value="10" class="slider" id="ventConfig20"
+                oninput="ventConfig20value.value=value">
+            <output id="ventConfig20value" class="number">-</output>
+        </div>
+        <div class="vent">
+            <span class="hour">21</span>
+            <input type="range" min="0" max="60" value="10" class="slider" id="ventConfig21"
+                oninput="ventConfig21value.value=value">
+            <output id="ventConfig21value" class="number">-</output>
+        </div>
+        <div class="vent">
+            <span class="hour">22</span>
+            <input type="range" min="0" max="60" value="10" class="slider" id="ventConfig22"
+                oninput="ventConfig22value.value=value">
+            <output id="ventConfig22value" class="number">-</output>
+        </div>
+        <div class="vent">
+            <span class="hour">23</span>
+            <input type="range" min="0" max="60" value="10" class="slider" id="ventConfig23"
+                oninput="ventConfig23value.value=value">
+            <output id="ventConfig23value" class="number">-</output>
+        </div>
+        <div class="boostConf vent">
+                <span class="hour">Boost time</span>
+                <input type="range" min="0" max="60" value="10" class="slider" id="boostTime"
+                    oninput="boostTimeValue.value=value">
+                <output id="boostTimeValue" class="number">-</output>
+        </div>
+        <button class="btn success" onclick="location.href='/';">Back</button>
+        <button class="btn success" onclick="sendRequest();location.href='/';">Save</button>
+        <div class="time"><span id="esp32time" /></div>
+    </div>
+</body>
+
+</html>

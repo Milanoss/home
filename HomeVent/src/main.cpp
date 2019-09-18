@@ -14,6 +14,8 @@
 
 const char *wifi_name = "TP-LINK_F092";
 const char *wifi_pass = "1takovenormalnipripojeni2takovenormalnipripojeni3#";
+// const char *wifi_name = "Tieto Guest";
+// const char *wifi_pass = "k9wh1sper";
 
 struct Weather {
     boolean valid;
@@ -39,6 +41,7 @@ simpleDSTadjust dstAdjusted(StartRule, EndRule);
 boolean timeOK = false;
 
 boolean boostPressed = false;
+int boostTime = 30;
 
 AsyncWebServer server(80);
 
@@ -58,7 +61,7 @@ void loopUpdateTime(void *pvParameters) {
         time_t t = dstAdjusted.time(NULL);
         setTime(hour(t) + 1, minute(t), second(t), day(t), month(t), year(t));
         timeOK = true;
-        delay(10000);
+        delay(3600000);
     }
 }
 
@@ -170,7 +173,7 @@ void loopVent(void *pvParameters) {
                 startVent();
             }
         }
-        delay(10000);
+        delay(5000);
     }
 }
 
@@ -233,8 +236,8 @@ void handleBoost() {
     if (boostPressed) {
         Serial.println("BOOST");
 
-        thingDataValid = true;
         thingData[4] = "1";
+        thingDataValid = true;
         sendDataToThingspeak();
 
         delay(500);
@@ -242,9 +245,9 @@ void handleBoost() {
         delay(500);
         digitalWrite(BOOST_OUTPUT_PIN, HIGH);
 
-        delay(15000);
-        thingDataValid = true;
+        delay(boostTime * 1000);
         thingData[4] = "0";
+        thingDataValid = true;
         sendDataToThingspeak();
 
         boostPressed = false;
@@ -264,10 +267,16 @@ void handleApiPut(AsyncWebServerRequest *request) {
         startVent();
         countNextManTimes(ventTimeStr.toInt());
     }
+    if (request->hasParam("boostTime")) {
+        AsyncWebParameter *vt = request->getParam("boostTime");
+        String boostTimeStr = vt->value().c_str();
+        boostTime = boostTimeStr.toInt();
+    }
     for (int i = 0; i < 24; i++) {
         if (request->hasParam(String(i))) {
             AsyncWebParameter *t = request->getParam(String(i));
-            Serial.println(t->value().c_str());
+            String vConfig = t->value().c_str();
+            ventConfig[i] = vConfig.toInt();
         }
     }
     request->send(200);
@@ -294,6 +303,9 @@ void handleApiGet(AsyncWebServerRequest *request) {
     json += ",    \"ventilation\":" + String(ventRunning);
     json += "   },";
     json += "  \"config\":{";
+    json += "\"boost\":{";
+    json += "\"time\":" + String(boostTime) + "\n";
+    json += "},";
     json += "\"time\":{";
     json += "\"year\":\"" + String(year(t)) + "\",\n";
     json += "\"month\":\"" + addZero(month(t)) + "\",\n";
@@ -377,6 +389,12 @@ void setup() {
     });
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
         request->send(SPIFFS, "/index.html", "text/html");
+    });
+    server.on("/config.html", HTTP_GET, [](AsyncWebServerRequest *request) {
+        request->send(SPIFFS, "/config.html", "text/html");
+    });
+    server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request) {
+        request->send(SPIFFS, "/style.css", "text/css");
     });
     server.on("/api", HTTP_GET, handleApiGet);
     server.on("/api", HTTP_PUT, handleApiPut);
