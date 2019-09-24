@@ -31,7 +31,7 @@ boolean thingDataValid;
 time_t ventNextStart;
 time_t ventNextStop;
 boolean ventRunning = false;
-int ventConfig[] = {10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 30, 30, 30, 10, 10, 10};
+int ventConfig[] = {10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10};
 
 #define NTP_SERVERS "us.pool.ntp.org", "pool.ntp.org", "time.nist.gov"
 #define timezone +1
@@ -41,7 +41,7 @@ simpleDSTadjust dstAdjusted(StartRule, EndRule);
 boolean timeOK = false;
 
 boolean boostPressed = false;
-int boostTime = 30;
+int boostTime = 1;
 
 AsyncWebServer server(80);
 
@@ -81,9 +81,9 @@ void sendDataToThingspeak() {
         httpClient.begin(url);
         int httpCode = httpClient.GET();
         if (httpCode > 0) {
-            //    Serial.printf("Thingspeak code: %d\n", httpCode);
+               Serial.printf("Thingspeak code: %d\n", httpCode);
             if (httpCode == HTTP_CODE_OK) {
-                //      Serial.println("Data sent to Thingspeak");
+                     Serial.println("Data sent to Thingspeak");
             } else {
                 Serial.println("Cannot send data to Thingspeak!");
             }
@@ -182,10 +182,10 @@ Weather getWeather() {
     httpClient.begin("http://api.openweathermap.org/data/2.5/weather?id=3063471&appid=18d2229ced1ff3062d208b42f872abbc&units=metric");
     int httpCode = httpClient.GET();
     if (httpCode > 0) {
-        //    Serial.printf("Weather code: %d\n", httpCode);
+           Serial.printf("Weather code: %d\n", httpCode);
         if (httpCode == HTTP_CODE_OK) {
             String payload = httpClient.getString();
-            //      Serial.println(payload);
+                 Serial.println(payload);
             DynamicJsonDocument doc(2048);
             DeserializationError error = deserializeJson(doc, payload);
             if (error) {
@@ -212,6 +212,7 @@ void loopWeather(void *pvParameters) {
         Serial.println("Getting weather");
         Weather weather = getWeather();
         if (weather.valid) {
+            Serial.println("Have weather");
             String temp = String(weather.temp);
             if (temp != lastData[0]) {
                 thingDataValid = true;
@@ -228,7 +229,7 @@ void loopWeather(void *pvParameters) {
                 thingData[2] = pressure;
             }
         }
-        delay(60000);
+        delay(300000);// 5 minutes
     }
 }
 
@@ -242,10 +243,10 @@ void handleBoost() {
 
         delay(500);
         digitalWrite(BOOST_OUTPUT_PIN, LOW);
-        delay(500);
+        delay(1000);
         digitalWrite(BOOST_OUTPUT_PIN, HIGH);
 
-        delay(boostTime * 1000);
+        delay(boostTime * 60 * 1000);
         thingData[4] = "0";
         thingDataValid = true;
         sendDataToThingspeak();
@@ -273,10 +274,15 @@ void handleApiPut(AsyncWebServerRequest *request) {
         boostTime = boostTimeStr.toInt();
     }
     for (int i = 0; i < 24; i++) {
+        boolean count = false;
         if (request->hasParam(String(i))) {
             AsyncWebParameter *t = request->getParam(String(i));
             String vConfig = t->value().c_str();
             ventConfig[i] = vConfig.toInt();
+        }
+        if (count) {
+            stopVent();
+            countNextTimes(now());
         }
     }
     request->send(200);
@@ -352,6 +358,9 @@ void setup() {
     Serial.begin(115200);
 
     pinMode(VENT_RELAY_PIN, OUTPUT);
+    digitalWrite(VENT_RELAY_PIN, HIGH);
+    pinMode(BOOST_OUTPUT_PIN, OUTPUT);
+    digitalWrite(BOOST_OUTPUT_PIN, HIGH);
 
     pinMode(BOOST_INPUT_PIN, INPUT_PULLUP);
     attachInterrupt(BOOST_INPUT_PIN, isr, FALLING);
@@ -374,7 +383,7 @@ void setup() {
     xTaskCreatePinnedToCore(loopWeather, "loopWeather", 8192, NULL, 3, NULL, 0);
     delay(500);
 
-    xTaskCreatePinnedToCore(loopVent, "looVent", 8192, NULL, 1, NULL, 0);
+    xTaskCreatePinnedToCore(loopVent, "loopVent", 8192, NULL, 1, NULL, 0);
     delay(500);
 
     xTaskCreatePinnedToCore(loopThingSpeakSend, "loopThingSpeakSend", 8192, NULL, 2, NULL, 0);
