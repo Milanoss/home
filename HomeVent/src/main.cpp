@@ -1,16 +1,21 @@
 #include <Arduino.h>
+#include <EEPROM.h>
 #include <ESPAsyncWebServer.h>
 #include <HTTPClient.h>
 #include <SPIFFS.h>
+#include <Ticker.h>
 #include <simpleDSTadjust.h>
 #include <timelib.h>
 #include "ArduinoJson.h"
 
-#define BOOST_INPUT_PIN 18
-#define BOOST_OUTPUT_PIN 19
+// #define BOOST_INPUT_PIN 18
+// #define BOOST_OUTPUT_PIN 19
 #define VENT_RELAY_PIN 22
 
 #define FILESYSTEM SPIFFS
+
+int interval = 100;
+unsigned long previousMillis = 0;
 
 const char *wifi_name = "TP-LINK_F092";
 const char *wifi_pass = "1takovenormalnipripojeni2takovenormalnipripojeni3#";
@@ -18,19 +23,21 @@ const char *wifi_pass = "1takovenormalnipripojeni2takovenormalnipripojeni3#";
 // const char *wifi_pass = "k9wh1sper";
 
 struct Weather {
-    boolean valid;
+    bool valid;
     int pressure;
     int humidity;
     float temp;
 };
+Ticker weatherTicker;
 
 String thingData[] = {"", "", "", "", "", "", "", ""};
 String lastData[] = {"", "", "", "", "", "", "", ""};
-boolean thingDataValid;
+bool thingDataValid;
+Ticker thingSpeakTicker;
 
 time_t ventNextStart;
 time_t ventNextStop;
-boolean ventRunning = false;
+bool ventRunning = false;
 int ventConfig[] = {10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10};
 
 #define NTP_SERVERS "us.pool.ntp.org", "pool.ntp.org", "time.nist.gov"
@@ -38,15 +45,47 @@ int ventConfig[] = {10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 
 struct dstRule StartRule = {"CEST", Last, Sun, Mar, 2, 3600};
 struct dstRule EndRule = {"CET", Last, Sun, Oct, 2, 0};
 simpleDSTadjust dstAdjusted(StartRule, EndRule);
-boolean timeOK = false;
+bool timeOK = false;
 
-boolean boostPressed = false;
-int boostTime = 1;
+// bool boostPressed = false;
+// bool boostRunning = false;
+// time_t boostNextStop;
+// int boostTime = 1;
+// portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
 
 AsyncWebServer server(80);
 
-void IRAM_ATTR isr() {
-    boostPressed = true;
+HTTPClient httpClient1;
+HTTPClient httpClient2;
+
+// void IRAM_ATTR isr() {
+//     portENTER_CRITICAL_ISR(&mux);
+//     boostPressed = true;
+//     portEXIT_CRITICAL_ISR(&mux);
+// }
+
+void WIFI_Connect() {
+    WiFi.disconnect();
+    Serial.println("Connecting to WiFi...");
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(wifi_name, wifi_pass);
+
+    for (int i = 0; i < 60; i++) {
+        if (WiFi.status() != WL_CONNECTED) {
+            delay(250);
+            // digitalWrite(ledPin, LOW);
+            Serial.print(".");
+            delay(250);
+            // digitalWrite(ledPin, HIGH);
+        }
+    }
+    if (WiFi.status() == WL_CONNECTED) {
+        Serial.println("");
+        Serial.println("WiFi Connected");
+        Serial.println("IP address: ");
+        Serial.println(WiFi.localIP());
+    }
+    // digitalWrite(ledPin, 0);
 }
 
 void loopUpdateTime(void *pvParameters) {
@@ -66,8 +105,7 @@ void loopUpdateTime(void *pvParameters) {
 }
 
 void sendDataToThingspeak() {
-    if (thingDataValid) {
-        HTTPClient httpClient;
+    if (thingDataValid && WiFi.status() == WL_CONNECTED) {
         String url = "https://api.thingspeak.com/update?api_key=TRBAF4LV7U76SVST";
         url += thingData[0] != "" ? "&field1=" + thingData[0] : "";
         url += thingData[1] != "" ? "&field2=" + thingData[1] : "";
@@ -78,17 +116,19 @@ void sendDataToThingspeak() {
         url += thingData[6] != "" ? "&field7=" + thingData[6] : "";
         url += thingData[7] != "" ? "&field8=" + thingData[7] : "";
         Serial.println(url);
-        httpClient.begin(url);
-        int httpCode = httpClient.GET();
+        httpClient1.begin(url);
+        int httpCode = httpClient1.GET();
+        Serial.printf("Thingspeak code: %d\n", httpCode);
         if (httpCode > 0) {
-               Serial.printf("Thingspeak code: %d\n", httpCode);
+            String payload = httpClient1.getString();
             if (httpCode == HTTP_CODE_OK) {
-                     Serial.println("Data sent to Thingspeak");
+                Serial.print("Data sent to Thingspeak: ");
+                Serial.println(payload);
             } else {
                 Serial.println("Cannot send data to Thingspeak!");
             }
         }
-        httpClient.end();
+        httpClient1.end();
 
         thingDataValid = false;
         for (int i = 0; i < 8; i++) {
@@ -100,11 +140,14 @@ void sendDataToThingspeak() {
     }
 }
 
-void loopThingSpeakSend(void *pvParameters) {
-    while (true) {
-        sendDataToThingspeak();
-        delay(15000);
-    }
+// void loopThingSpeakSend(void *pvParameters) {
+void loopThingSpeakSend() {
+    // delay(10000);
+    // while (true) {
+    Serial.println("loopThingSpeakSend");
+    sendDataToThingspeak();
+    //     delay(30000);
+    // }
 }
 
 void printTime(String text, time_t time) {
@@ -118,7 +161,7 @@ void startVent() {
     ventRunning = true;
     digitalWrite(VENT_RELAY_PIN, LOW);
     thingDataValid = true;
-    thingData[3] = "1";
+    thingData[3] = "2";
 }
 
 void stopVent() {
@@ -126,7 +169,7 @@ void stopVent() {
     digitalWrite(VENT_RELAY_PIN, HIGH);
     ventRunning = false;
     thingDataValid = true;
-    thingData[3] = "0";
+    thingData[3] = "1";
 }
 
 void countNextTimes(time_t tNow) {
@@ -178,109 +221,147 @@ void loopVent(void *pvParameters) {
 }
 
 Weather getWeather() {
-    HTTPClient httpClient;
-    httpClient.begin("http://api.openweathermap.org/data/2.5/weather?id=3063471&appid=18d2229ced1ff3062d208b42f872abbc&units=metric");
-    int httpCode = httpClient.GET();
-    if (httpCode > 0) {
-           Serial.printf("Weather code: %d\n", httpCode);
-        if (httpCode == HTTP_CODE_OK) {
-            String payload = httpClient.getString();
-                 Serial.println(payload);
-            DynamicJsonDocument doc(2048);
-            DeserializationError error = deserializeJson(doc, payload);
-            if (error) {
-                Serial.print(F("deserializeJson() failed: "));
-                Serial.println(error.c_str());
+    float temp = 0;
+    int pressure = 0;
+    int humidity = 0;
+    bool result = false;
+    if (WiFi.status() == WL_CONNECTED) {
+        httpClient2.begin("http://api.openweathermap.org/data/2.5/weather?id=3063471&appid=18d2229ced1ff3062d208b42f872abbc&units=metric");
+        int httpCode = httpClient2.GET();
+        if (httpCode > 0) {
+            Serial.printf("Weather code: %d\n", httpCode);
+            if (httpCode == HTTP_CODE_OK) {
+                String payload = httpClient2.getString();
+                // Serial.println(payload);
+                DynamicJsonDocument doc(2048);
+                DeserializationError error = deserializeJson(doc, payload);
+                if (error) {
+                    Serial.print(F("deserializeJson() failed: "));
+                    Serial.println(error.c_str());
+                } else {
+                    temp = doc["main"]["temp"];
+                    pressure = doc["main"]["pressure"];
+                    humidity = doc["main"]["humidity"];
+                    result = true;
+                }
             } else {
-                float temp = doc["main"]["temp"];
-                int pressure = doc["main"]["pressure"];
-                int humidity = doc["main"]["humidity"];
-                httpClient.end();
-                payload = String();
-                return {true, pressure, humidity, temp};
-            }
-        } else {
-            Serial.println("Cannot get weather!");
-        }
-    }
-    httpClient.end();
-    return {false};
-}
-
-void loopWeather(void *pvParameters) {
-    while (true) {
-        Serial.println("Getting weather");
-        Weather weather = getWeather();
-        if (weather.valid) {
-            Serial.println("Have weather");
-            String temp = String(weather.temp);
-            if (temp != lastData[0]) {
-                thingDataValid = true;
-                thingData[0] = temp;
-            }
-            String humidity = String(weather.humidity);
-            if (humidity != lastData[1]) {
-                thingDataValid = true;
-                thingData[1] = humidity;
-            }
-            String pressure = String(weather.pressure);
-            if (pressure != lastData[2]) {
-                thingDataValid = true;
-                thingData[2] = pressure;
+                Serial.println("Cannot get weather!");
             }
         }
-        delay(300000);// 5 minutes
+        httpClient2.end();
     }
+    return {result, pressure, humidity, temp};
 }
 
-void handleBoost() {
-    if (boostPressed) {
-        Serial.println("BOOST");
-
-        thingData[4] = "1";
-        thingDataValid = true;
-        sendDataToThingspeak();
-
-        delay(500);
-        digitalWrite(BOOST_OUTPUT_PIN, LOW);
-        delay(1000);
-        digitalWrite(BOOST_OUTPUT_PIN, HIGH);
-
-        delay(boostTime * 60 * 1000);
-        thingData[4] = "0";
-        thingDataValid = true;
-        sendDataToThingspeak();
-
-        boostPressed = false;
+// void loopWeather(void *pvParameters) {
+void loopWeather() {
+    // while (true) {
+    Serial.println("loopWeather");
+    Weather weather = getWeather();
+    if (weather.valid) {
+        Serial.println("Have weather");
+        String temp = String(weather.temp);
+        if (temp != lastData[0]) {
+            thingDataValid = true;
+            thingData[0] = temp;
+        }
+        String humidity = String(weather.humidity);
+        if (humidity != lastData[1]) {
+            thingDataValid = true;
+            thingData[1] = humidity;
+        }
+        String pressure = String(weather.pressure);
+        if (pressure != lastData[2]) {
+            thingDataValid = true;
+            thingData[2] = pressure;
+        }
     }
+    //     delay(300000);  // 5 minutes
+    // }
 }
+
+// void handleBoost() {
+    // if (boostPressed) {
+    //     Serial.println("BOOST");
+
+    //     thingData[4] = "2";
+    //     thingDataValid = true;
+    //     sendDataToThingspeak();
+
+    //     delay(500);
+    //     digitalWrite(BOOST_OUTPUT_PIN, LOW);
+    //     delay(1000);
+    //     digitalWrite(BOOST_OUTPUT_PIN, HIGH);
+
+    //     delay(boostTime * 60 * 1000);
+    //     thingData[4] = "1";
+    //     thingDataValid = true;
+    //     sendDataToThingspeak();
+
+    //     portENTER_CRITICAL_ISR(&mux);
+    //     boostPressed = false;
+    //     portEXIT_CRITICAL_ISR(&mux);
+    // }
+//     if (boostPressed) {
+//         Serial.println("Boost start");
+//         digitalWrite(BOOST_OUTPUT_PIN, LOW);
+//         thingData[4] = "2";
+//         thingDataValid = true;
+//         boostPressed = false;
+//         boostRunning = true;
+
+//         time_t tNow = now();
+//         TimeElements te;
+//         breakTime(tNow, te);
+//         te.Minute = te.Minute + boostTime;
+//         boostNextStop = makeTime(te);
+
+//         delay(500);
+//         digitalWrite(BOOST_OUTPUT_PIN, HIGH);
+//     }
+//     if (boostRunning) {
+//         Serial.println("Boost running");
+//         if (boostNextStop < now()) {
+//             thingData[4] = "1";
+//             thingDataValid = true;
+//             boostRunning = false;
+//         }
+//     }
+// }
 
 void handleApiPut(AsyncWebServerRequest *request) {
-    if (request->hasParam("boost")) {
-        AsyncWebParameter *b = request->getParam("boost");
-        if (strcmp(b->value().c_str(), "true") == 0) {
-            boostPressed = true;
-        }
-    }
+    // if (request->hasParam("boost")) {
+    //     AsyncWebParameter *b = request->getParam("boost");
+    //     if (strcmp(b->value().c_str(), "true") == 0) {
+    //         portENTER_CRITICAL_ISR(&mux);
+    //         boostPressed = true;
+    //         portEXIT_CRITICAL_ISR(&mux);
+    //     }
+    // }
     if (request->hasParam("ventTime")) {
         AsyncWebParameter *vt = request->getParam("ventTime");
         String ventTimeStr = vt->value().c_str();
         startVent();
         countNextManTimes(ventTimeStr.toInt());
     }
-    if (request->hasParam("boostTime")) {
-        AsyncWebParameter *vt = request->getParam("boostTime");
-        String boostTimeStr = vt->value().c_str();
-        boostTime = boostTimeStr.toInt();
-    }
+    // if (request->hasParam("boostTime")) {
+    //     AsyncWebParameter *vt = request->getParam("boostTime");
+    //     String boostTimeStr = vt->value().c_str();
+    //     boostTime = boostTimeStr.toInt();
+    //     EEPROM.write(24, (byte)boostTime);
+    //     EEPROM.commit();
+    // }
     for (int i = 0; i < 24; i++) {
-        boolean count = false;
+        bool count = false;
         if (request->hasParam(String(i))) {
             AsyncWebParameter *t = request->getParam(String(i));
             String vConfig = t->value().c_str();
             ventConfig[i] = vConfig.toInt();
+            EEPROM.write(i, (byte)ventConfig[i]);
+            count = true;
         }
         if (count) {
+            EEPROM.commit();
             stopVent();
             countNextTimes(now());
         }
@@ -300,18 +381,18 @@ void handleApiGet(AsyncWebServerRequest *request) {
     time_t t = now();
     String json = "{";
     json += "\"data\":{";
-    json += "\"temp\":" + lastData[0];
-    json += ", \"humidity\":" + lastData[1];
-    json += ", \"pressure\":" + lastData[2];
+    json += "\"temp\":\"" + lastData[0] + "\",\n";
+    json += " \"humidity\":\"" + lastData[1] + "\",\n";
+    json += " \"pressure\":\"" + lastData[2] + "\"\n";
     json += "},";
     json += "  \"action\":{";
-    json += "    \"boost\":" + String(boostPressed);
-    json += ",    \"ventilation\":" + String(ventRunning);
+    // json += "    \"boost\":" + String(boostRunning);
+    json += "    \"ventilation\":" + String(ventRunning);
     json += "   },";
     json += "  \"config\":{";
-    json += "\"boost\":{";
-    json += "\"time\":" + String(boostTime) + "\n";
-    json += "},";
+    // json += "\"boost\":{";
+    // json += "\"time\":" + String(boostTime) + "\n";
+    // json += "},";
     json += "\"time\":{";
     json += "\"year\":\"" + String(year(t)) + "\",\n";
     json += "\"month\":\"" + addZero(month(t)) + "\",\n";
@@ -354,40 +435,40 @@ void handleApiGet(AsyncWebServerRequest *request) {
     request->send(response);
 }
 
+int checkValue(int val) {
+    if (val < 0 || val > 60) {
+        return 10;
+    } else {
+        return val;
+    }
+}
+
 void setup() {
     Serial.begin(115200);
 
     pinMode(VENT_RELAY_PIN, OUTPUT);
     digitalWrite(VENT_RELAY_PIN, HIGH);
-    pinMode(BOOST_OUTPUT_PIN, OUTPUT);
-    digitalWrite(BOOST_OUTPUT_PIN, HIGH);
+    // pinMode(BOOST_OUTPUT_PIN, OUTPUT);
+    // digitalWrite(BOOST_OUTPUT_PIN, HIGH);
 
-    pinMode(BOOST_INPUT_PIN, INPUT_PULLUP);
-    attachInterrupt(BOOST_INPUT_PIN, isr, FALLING);
+    // pinMode(BOOST_INPUT_PIN, INPUT_PULLDOWN);
+    // attachInterrupt(digitalPinToInterrupt(BOOST_INPUT_PIN), isr, RISING);
 
     thingDataValid = false;
 
     FILESYSTEM.begin();
 
-    WiFi.begin(wifi_name, wifi_pass);
-    Serial.println("Connecting to WiFi..");
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(1000);
-        Serial.println(".");
-    }
-    Serial.println("Connected to the WiFi network");
-    Serial.println(WiFi.localIP());
+    // pinMode(ledPin, OUTPUT);
+    WIFI_Connect();
 
-    Serial.println("SETUP FINISHED");
-
-    xTaskCreatePinnedToCore(loopWeather, "loopWeather", 8192, NULL, 3, NULL, 0);
-    delay(500);
+    // xTaskCreatePinnedToCore(loopWeather, "loopWeather", 8192, NULL, 3, NULL, 1);
+    // delay(500);
 
     xTaskCreatePinnedToCore(loopVent, "loopVent", 8192, NULL, 1, NULL, 0);
     delay(500);
 
-    xTaskCreatePinnedToCore(loopThingSpeakSend, "loopThingSpeakSend", 8192, NULL, 2, NULL, 0);
-    delay(500);
+    // xTaskCreatePinnedToCore(loopThingSpeakSend, "loopThingSpeakSend", 8192, NULL, 2, NULL, 1);
+    // delay(500);
 
     xTaskCreatePinnedToCore(loopUpdateTime, "loopUpdateTime", 8192, NULL, 2, NULL, 0);
     delay(500);
@@ -408,9 +489,36 @@ void setup() {
     server.on("/api", HTTP_GET, handleApiGet);
     server.on("/api", HTTP_PUT, handleApiPut);
     server.begin();
+
+    httpClient1.setReuse(true);
+    httpClient2.setReuse(true);
+
+    weatherTicker.attach(30, loopWeather);
+    thingSpeakTicker.attach(30, loopThingSpeakSend);
+
+    EEPROM.begin(25);
+    // boostTime = checkValue(EEPROM.read(24));
+    for (int i = 0; i < 24; i++) {
+        ventConfig[i] = checkValue(EEPROM.read(i));
+    }
+
+    Serial.println("SETUP FINISHED");
 }
 
 void loop() {
-    handleBoost();
-    delay(1);
+    unsigned long currentMillis = millis();
+
+    if (currentMillis - previousMillis >= interval) {
+        if (WiFi.status() != WL_CONNECTED) {
+            Serial.println("wifi disconnected ");
+            WIFI_Connect();
+        }
+        // save the last time you blinked the LED
+        previousMillis = currentMillis;
+    }
+
+    // handleBoost();
+    // loopWeather();
+    // loopThingSpeakSend();
+    delay(5000);
 }

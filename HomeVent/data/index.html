@@ -7,7 +7,7 @@
   <link href='https://fonts.googleapis.com/css?family=Open+Sans:300,400,600' rel='stylesheet' />
   <link rel="stylesheet" href="style.css">
   <script type="text/javascript">
-    var boost, ventilation;
+    var ventilation;
     var temp, humidity, pressure;
     var esp32time;
     function loadValues() {
@@ -19,7 +19,6 @@
             temp = res.data.temp;
             humidity = res.data.humidity;
             pressure = res.data.pressure;
-            boost = res.action.boost;
             ventilation = res.action.ventilation;
             var t = res.config.time;
             esp32time = t.hour + ":" + t.minute + ":" + t.second + " " + t.day + "-" + t.month + "-" + t.year;
@@ -37,11 +36,6 @@
         document.getElementById("ventlight").style.visibility = "visible";
       } else {
         document.getElementById("ventlight").style.visibility = "hidden";
-      }
-      if (boost == "1") {
-        document.getElementById("boostlight").style.visibility = "visible";
-      } else {
-        document.getElementById("boostlight").style.visibility = "hidden";
       }
     }
     function onBodyLoad() {
@@ -84,12 +78,6 @@
         </svg>
         <input type="range" min="0" max="60" value="10" class="slider" id="myRange" oninput="rangevalue.value=value">
         <output id="rangevalue" class="number">10</output>
-      </div>
-      <div>
-        <button class="btn danger" onclick="sendRequest('boost', 'true')">Boost</button>
-        <svg id="boostlight" width="20px" height="20px" x="0px" y="0px" viewBox="0 0 512 512"
-          style="visibility: hidden;">
-          <use xlink:href="#lightening" fill="#000000" /></svg>
       </div>
     </div>
     <div class='data temperature'>
@@ -160,6 +148,34 @@ C15.093,36.497,14.455,37.135,13.667,37.135z' fill=#3C97D3 />
      c0,20.769,16.905,37.674,37.674,37.674c20.787,0,37.691-16.905,37.691-37.674C194.244,136.454,177.34,119.55,156.553,119.55z" />
         </g>
       </svg>
+    </a>
+    <span>&nbsp;&nbsp;&nbsp;</span>
+    <a href="https://milanoss.github.io/rekuperace/">
+      <svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+        x="0px" y="0px" width=30px height=30px viewBox="0 0 512 512" style="enable-background:new 0 0 512 512;"
+        xml:space="preserve">
+        <g>
+          <path d="M488.399,492h-21.933V173.536c0-14.823-12.06-26.882-26.882-26.882H390.56c-14.823,0-26.882,12.06-26.882,26.882V492
+			h-55.692V317.825c0-14.823-12.059-26.882-26.882-26.882H232.08c-14.823,0-26.882,12.06-26.882,26.882V492h-55.692v-90.204
+			c0-14.823-12.06-26.882-26.882-26.882H73.599c-14.823,0-26.882,12.06-26.882,26.882V492H23.601c-5.523,0-10,4.477-10,10
+			s4.477,10,10,10h464.798c5.523,0,10-4.477,10-10S493.922,492,488.399,492z M129.504,492H66.716v-90.204
+			c0-3.795,3.087-6.882,6.882-6.882h49.024c3.795,0,6.882,3.087,6.882,6.882V492z M287.985,492h-62.788V317.825
+			c0-3.795,3.087-6.882,6.882-6.882h49.024c3.794,0,6.882,3.087,6.882,6.882V492z M446.466,492h-62.788V173.536
+			c0-3.795,3.087-6.882,6.882-6.882h49.024c3.795,0,6.882,3.087,6.882,6.882V492z" />
+        </g>
+        <g>
+          <path d="M466.442,10.516c0.14-2.729-0.82-5.504-2.904-7.588c-2.084-2.084-4.859-3.045-7.588-2.904
+			C455.789,0.017,455.63,0,455.466,0h-60.5c-5.523,0-10,4.477-10,10s4.477,10,10,10h37.357l-98.857,98.858l-37.28-37.28
+			c-1.875-1.875-4.419-2.929-7.071-2.929c-2.652,0-5.196,1.054-7.071,2.929l-179.769,179.77c-3.905,3.905-3.905,10.237,0,14.143
+			c1.953,1.951,4.512,2.927,7.071,2.927s5.119-0.976,7.071-2.929L289.115,102.79l37.28,37.28c3.905,3.905,10.237,3.905,14.143,0
+			L446.466,34.143v33.81c0,5.523,4.477,10,10,10s10-4.477,10-10V11C466.466,10.837,466.449,10.678,466.442,10.516z" />
+        </g>
+        <g>
+          <circle cx="75.64" cy="303.31" r="10" />
+        </g>
+
+      </svg>
+
     </a>
   </div>
 </body>

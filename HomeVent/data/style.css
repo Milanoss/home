@@ -10,6 +10,10 @@ body {
   margin: 0px;
 }
 
+a {
+  text-decoration: none;
+}
+
 h1 {
   margin: 50px auto 30px;
 }
@@ -163,7 +167,6 @@ h1 {
 .vent {
   display: flex;
   flex-direction: row;
-  justify-content: space-between;
   align-items: center;
 }
 

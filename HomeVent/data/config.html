@@ -7,9 +7,9 @@
     <link href='https://fonts.googleapis.com/css?family=Open+Sans:300,400,600' rel='stylesheet' />
     <link rel="stylesheet" href="style.css">
     <script type="text/javascript">
-        var boost, ventilation;
+        var ventilation;
         var temp, humidity, pressure;
-        var esp32time, ventConfig, boostTime;
+        var esp32time, ventConfig;
         function loadValues() {
             var xh = new XMLHttpRequest();
             xh.onreadystatechange = function () {
@@ -19,7 +19,6 @@
                         var t = res.config.time;
                         esp32time = t.hour + ":" + t.minute + ":" + t.second + " " + t.day + "-" + t.month + "-" + t.year;
                         ventConfig = res.config.ventilation;
-                        boostTime = res.config.boost.time;
                         setValues();
                     }
                 }
@@ -29,8 +28,6 @@
         };
         function setValues() {
             document.getElementById("esp32time").innerText = esp32time;
-            document.getElementById("boostTime").value = boostTime;
-            document.getElementById("boostTimeValue").innerText = boostTime;
             for (i = 0; i < 24; i++) {
                 document.getElementById("ventConfig" + i).value = ventConfig[i];
                 document.getElementById("ventConfig" + i + "value").innerText = ventConfig[i];
@@ -52,7 +49,6 @@
             for (i = 0; i < 24; i++) {
                 url = url + i + "=" + document.getElementById("ventConfig" + i + "value").innerText + "&";
             }
-            url = url + "boostTime=" + document.getElementById("boostTimeValue").innerText + "&";
             xh.open("PUT", url, true);
             xh.send(null);
         };
@@ -206,12 +202,6 @@
             <input type="range" min="0" max="60" value="10" class="slider" id="ventConfig23"
                 oninput="ventConfig23value.value=value">
             <output id="ventConfig23value" class="number">-</output>
-        </div>
-        <div class="boostConf vent">
-                <span class="hour">Boost time</span>
-                <input type="range" min="0" max="60" value="10" class="slider" id="boostTime"
-                    oninput="boostTimeValue.value=value">
-                <output id="boostTimeValue" class="number">-</output>
         </div>
         <button class="btn success" onclick="location.href='/';">Back</button>
         <button class="btn success" onclick="sendRequest();location.href='/';">Save</button>
