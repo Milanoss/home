@@ -100,7 +100,7 @@ void loopUpdateTime(void *pvParameters) {
         time_t t = dstAdjusted.time(NULL);
         setTime(hour(t) + 1, minute(t), second(t), day(t), month(t), year(t));
         timeOK = true;
-        delay(3600000);
+        delay(86400000);  //one day
     }
 }
 
@@ -173,13 +173,13 @@ void stopVent() {
 }
 
 void countNextTimes(time_t tNow) {
-    int h = hour(tNow);
-    int ventTime = ventConfig[h];  // time in minutes
+    int h = hour(tNow) + 1;
+    int ventTime = ventConfig[h];
     TimeElements te;
     breakTime(tNow, te);
     te.Second = 0;
     te.Minute = 0;
-    te.Hour = te.Hour + 1;
+    te.Hour = h;
     ventNextStart = makeTime(te);
     te.Minute = ventTime;
     ventNextStop = makeTime(te);
@@ -216,7 +216,7 @@ void loopVent(void *pvParameters) {
                 startVent();
             }
         }
-        delay(5000);
+        delay(10000);
     }
 }
 
@@ -281,27 +281,27 @@ void loopWeather() {
 }
 
 // void handleBoost() {
-    // if (boostPressed) {
-    //     Serial.println("BOOST");
+// if (boostPressed) {
+//     Serial.println("BOOST");
 
-    //     thingData[4] = "2";
-    //     thingDataValid = true;
-    //     sendDataToThingspeak();
+//     thingData[4] = "2";
+//     thingDataValid = true;
+//     sendDataToThingspeak();
 
-    //     delay(500);
-    //     digitalWrite(BOOST_OUTPUT_PIN, LOW);
-    //     delay(1000);
-    //     digitalWrite(BOOST_OUTPUT_PIN, HIGH);
+//     delay(500);
+//     digitalWrite(BOOST_OUTPUT_PIN, LOW);
+//     delay(1000);
+//     digitalWrite(BOOST_OUTPUT_PIN, HIGH);
 
-    //     delay(boostTime * 60 * 1000);
-    //     thingData[4] = "1";
-    //     thingDataValid = true;
-    //     sendDataToThingspeak();
+//     delay(boostTime * 60 * 1000);
+//     thingData[4] = "1";
+//     thingDataValid = true;
+//     sendDataToThingspeak();
 
-    //     portENTER_CRITICAL_ISR(&mux);
-    //     boostPressed = false;
-    //     portEXIT_CRITICAL_ISR(&mux);
-    // }
+//     portENTER_CRITICAL_ISR(&mux);
+//     boostPressed = false;
+//     portEXIT_CRITICAL_ISR(&mux);
+// }
 //     if (boostPressed) {
 //         Serial.println("Boost start");
 //         digitalWrite(BOOST_OUTPUT_PIN, LOW);
@@ -520,5 +520,5 @@ void loop() {
     // handleBoost();
     // loopWeather();
     // loopThingSpeakSend();
-    delay(5000);
+    delay(10000);
 }
