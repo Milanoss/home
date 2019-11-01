@@ -100,7 +100,7 @@ void loopUpdateTime(void *pvParameters) {
         time_t t = dstAdjusted.time(NULL);
         setTime(hour(t) + 1, minute(t), second(t), day(t), month(t), year(t));
         timeOK = true;
-        delay(86400000);  //one day
+        delay(86400000 * 3);  //one day
     }
 }
 
@@ -116,27 +116,26 @@ void sendDataToThingspeak() {
         url += thingData[6] != "" ? "&field7=" + thingData[6] : "";
         url += thingData[7] != "" ? "&field8=" + thingData[7] : "";
         Serial.println(url);
-        httpClient1.begin(url);
-        int httpCode = httpClient1.GET();
+        httpClient2.begin(url);
+        int httpCode = httpClient2.GET();
         Serial.printf("Thingspeak code: %d\n", httpCode);
         if (httpCode > 0) {
-            String payload = httpClient1.getString();
+            String payload = httpClient2.getString();
             if (httpCode == HTTP_CODE_OK) {
                 Serial.print("Data sent to Thingspeak: ");
                 Serial.println(payload);
+                thingDataValid = false;
+                for (int i = 0; i < 8; i++) {
+                    if (thingData[i] != "") {
+                        lastData[i] = thingData[i];
+                    }
+                    thingData[i] = "";
+                }
             } else {
                 Serial.println("Cannot send data to Thingspeak!");
             }
         }
-        httpClient1.end();
-
-        thingDataValid = false;
-        for (int i = 0; i < 8; i++) {
-            if (thingData[i] != "") {
-                lastData[i] = thingData[i];
-            }
-            thingData[i] = "";
-        }
+        httpClient2.end();
     }
 }
 
@@ -226,12 +225,12 @@ Weather getWeather() {
     int humidity = 0;
     bool result = false;
     if (WiFi.status() == WL_CONNECTED) {
-        httpClient2.begin("http://api.openweathermap.org/data/2.5/weather?id=3063471&appid=18d2229ced1ff3062d208b42f872abbc&units=metric");
-        int httpCode = httpClient2.GET();
+        httpClient1.begin("http://api.openweathermap.org/data/2.5/weather?id=3063471&appid=18d2229ced1ff3062d208b42f872abbc&units=metric");
+        int httpCode = httpClient1.GET();
         if (httpCode > 0) {
             Serial.printf("Weather code: %d\n", httpCode);
             if (httpCode == HTTP_CODE_OK) {
-                String payload = httpClient2.getString();
+                String payload = httpClient1.getString();
                 // Serial.println(payload);
                 DynamicJsonDocument doc(2048);
                 DeserializationError error = deserializeJson(doc, payload);
@@ -248,7 +247,7 @@ Weather getWeather() {
                 Serial.println("Cannot get weather!");
             }
         }
-        httpClient2.end();
+        httpClient1.end();
     }
     return {result, pressure, humidity, temp};
 }
@@ -281,27 +280,27 @@ void loopWeather() {
 }
 
 // void handleBoost() {
-// if (boostPressed) {
-//     Serial.println("BOOST");
+    // if (boostPressed) {
+    //     Serial.println("BOOST");
 
-//     thingData[4] = "2";
-//     thingDataValid = true;
-//     sendDataToThingspeak();
+    //     thingData[4] = "2";
+    //     thingDataValid = true;
+    //     sendDataToThingspeak();
 
-//     delay(500);
-//     digitalWrite(BOOST_OUTPUT_PIN, LOW);
-//     delay(1000);
-//     digitalWrite(BOOST_OUTPUT_PIN, HIGH);
+    //     delay(500);
+    //     digitalWrite(BOOST_OUTPUT_PIN, LOW);
+    //     delay(1000);
+    //     digitalWrite(BOOST_OUTPUT_PIN, HIGH);
 
-//     delay(boostTime * 60 * 1000);
-//     thingData[4] = "1";
-//     thingDataValid = true;
-//     sendDataToThingspeak();
+    //     delay(boostTime * 60 * 1000);
+    //     thingData[4] = "1";
+    //     thingDataValid = true;
+    //     sendDataToThingspeak();
 
-//     portENTER_CRITICAL_ISR(&mux);
-//     boostPressed = false;
-//     portEXIT_CRITICAL_ISR(&mux);
-// }
+    //     portENTER_CRITICAL_ISR(&mux);
+    //     boostPressed = false;
+    //     portEXIT_CRITICAL_ISR(&mux);
+    // }
 //     if (boostPressed) {
 //         Serial.println("Boost start");
 //         digitalWrite(BOOST_OUTPUT_PIN, LOW);
@@ -325,6 +324,7 @@ void loopWeather() {
 //             thingData[4] = "1";
 //             thingDataValid = true;
 //             boostRunning = false;
+//             Serial.println("Boost stop");
 //         }
 //     }
 // }
@@ -386,7 +386,7 @@ void handleApiGet(AsyncWebServerRequest *request) {
     json += " \"pressure\":\"" + lastData[2] + "\"\n";
     json += "},";
     json += "  \"action\":{";
-    // json += "    \"boost\":" + String(boostRunning);
+    // json += "    \"boost\":" + String(boostRunning) + ",\n";
     json += "    \"ventilation\":" + String(ventRunning);
     json += "   },";
     json += "  \"config\":{";
@@ -451,7 +451,7 @@ void setup() {
     // pinMode(BOOST_OUTPUT_PIN, OUTPUT);
     // digitalWrite(BOOST_OUTPUT_PIN, HIGH);
 
-    // pinMode(BOOST_INPUT_PIN, INPUT_PULLDOWN);
+    // pinMode(BOOST_INPUT_PIN, INPUT);
     // attachInterrupt(digitalPinToInterrupt(BOOST_INPUT_PIN), isr, RISING);
 
     thingDataValid = false;
@@ -490,10 +490,10 @@ void setup() {
     server.on("/api", HTTP_PUT, handleApiPut);
     server.begin();
 
-    httpClient1.setReuse(true);
-    httpClient2.setReuse(true);
+    httpClient1.setReuse(false);
+    // httpClient2.setReuse(true);
 
-    weatherTicker.attach(30, loopWeather);
+    weatherTicker.attach(45, loopWeather);
     thingSpeakTicker.attach(30, loopThingSpeakSend);
 
     EEPROM.begin(25);
