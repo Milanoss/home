@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Weather Station</title>
+    <script type="text/javascript">
+        var message;
+        function loadValues() {
+            var xh = new XMLHttpRequest();
+            xh.onreadystatechange = function () {
+                if (xh.readyState == 4) {
+                    if (xh.status == 200) {
+                        message = xh.responseText;
+                        setValues();
+                    }
+                }
+            };
+            xh.open("GET", "/log", true);
+            xh.send(null);
+        };
+        function setValues() {
+            var oldmessage = document.getElementById("message").innerText;
+            document.getElementById("message").innerText = oldmessage + message;
+            message = "";
+        }
+        setInterval(loadValues, 10000);
+    </script>
+</head>
+
+<body>
+    <div id="message" style="white-space: pre-wrap;"></div>
+</body>
+
+</html>
