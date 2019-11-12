@@ -2,9 +2,7 @@
 #include <ESP8266HTTPClient.h>
 #include <ESP8266WiFi.h>
 #include <SoftwareSerial.h>  // Remove if using HardwareSerial or non-uno library compatable device
-#include <Ticker.h>
-// #include <TM1637Display.h>
-#include "MHZ19.h"  // include main library
+#include "MHZ19.h"           // include main library
 #include "RunningMedian.h"
 
 // #define RX_PIN 10      // Rx pin which the MHZ19 Tx pin is attached to
@@ -28,12 +26,11 @@ SoftwareSerial mySerial(RX_PIN, TX_PIN);  // Uno example
 // TM1637Display displej(CLK, DIO);
 
 unsigned long getDataTimer = 0;  // Variable to store timer interval
+unsigned long sendTimer = 0;
 String thingData[] = {"", "", "", "", "", "", "", ""};
 int CO2;
 
 RunningMedian co2samples = RunningMedian(70);
-
-Ticker thingspeakTicker;
 
 void WIFI_Connect() {
     WiFi.disconnect();
@@ -61,7 +58,8 @@ void WIFI_Connect() {
 
 void sendDataToThingspeak() {
     // WIFI_Connect();
-    thingData[5] = String(co2samples.getMedian());
+    thingData[5] = String((int)co2samples.getMedian());
+    co2samples.clear();
 
     if (WiFi.status() == WL_CONNECTED) {
         WiFiClient client;
@@ -78,17 +76,16 @@ void sendDataToThingspeak() {
         url += thingData[6] != "" ? "&field7=" + thingData[6] : "";
         url += thingData[7] != "" ? "&field8=" + thingData[7] : "";
         Serial.println(url);
-        if (httpClient1.begin(client, url + "\r\n\r\n\r\n")) {
+        if (httpClient1.begin(client, url)) {
             int httpCode = httpClient1.GET();
             Serial.printf("Thingspeak code: %d\n", httpCode);
-            if (httpCode > 0) {
-                String payload = httpClient1.getString();
-                if (httpCode == HTTP_CODE_OK) {
-                    Serial.print("Data sent to Thingspeak: ");
-                    Serial.println(payload);
-                } else {
-                    Serial.println("Cannot send data to Thingspeak!");
-                }
+            String payload = httpClient1.getString();
+            Serial.println(payload);
+            if (httpCode == HTTP_CODE_OK) {
+                Serial.print("Data sent to Thingspeak: ");
+                Serial.println(payload);
+            } else {
+                Serial.println("Cannot send data to Thingspeak!");
             }
             httpClient1.end();
         } else {
@@ -117,13 +114,10 @@ void setup() {
 
     // pinMode(7, INPUT_PULLUP);
     WIFI_Connect();
-
-    thingspeakTicker.attach(120, sendDataToThingspeak);
 }
 
 void loop() {
     unsigned long currentMillis = millis();
-
     if (currentMillis - previousMillis >= interval) {
         if (WiFi.status() != WL_CONNECTED) {
             Serial.println("wifi disconnected ");
@@ -139,6 +133,11 @@ void loop() {
     //     Serial.println("CALIBRATION");
     //     myMHZ19.calibrateZero();
     // }
+    sendTimer = getDataTimer = millis();
+
+    if (millis() - sendTimer >= 40000) {
+        sendDataToThingspeak();
+    }
     if (millis() - getDataTimer >= 20000)  // Check if interval has elapsed (non-blocking delay() equivilant)
     {
         /* note: getCO2() default is command "CO2 Unlimited". This returns the correct CO2 reading even 
@@ -158,8 +157,6 @@ void loop() {
         Temp = myMHZ19.getTemperature();  // Request Temperature (as Celsius)
         Serial.print("Temperature (C): ");
         Serial.println(Temp);
-
-        getDataTimer = millis();  // Update interval
 
         if (CO2 > 0) {
             co2samples.add(CO2);
