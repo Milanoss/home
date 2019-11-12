@@ -1,22 +1,106 @@
 #include <Arduino.h>
+#include <ESP8266HTTPClient.h>
+#include <ESP8266WiFi.h>
 #include <SoftwareSerial.h>  // Remove if using HardwareSerial or non-uno library compatable device
-#include <TM1637Display.h>
+#include <Ticker.h>
+// #include <TM1637Display.h>
 #include "MHZ19.h"  // include main library
+#include "RunningMedian.h"
 
-#define RX_PIN 10      // Rx pin which the MHZ19 Tx pin is attached to
-#define TX_PIN 11      // Tx pin which the MHZ19 Rx pin is attached to
+// #define RX_PIN 10      // Rx pin which the MHZ19 Tx pin is attached to
+// #define TX_PIN 11      // Tx pin which the MHZ19 Rx pin is attached to
+#define RX_PIN 4       // Rx pin which the MHZ19 Tx pin is attached to
+#define TX_PIN 5       // Tx pin which the MHZ19 Rx pin is attached to
 #define BAUDRATE 9600  // Native to the sensor (do not change)
 
 #define CLK 2
 #define DIO 3
+const String wifi_name = "TP-LINK_F092";
+const String wifi_pass = "1takovenormalnipripojeni2takovenormalnipripojeni3#";
+
+int interval = 100;
+unsigned long previousMillis = 0;
 
 MHZ19 myMHZ19;                            // Constructor for MH-Z19 class
 SoftwareSerial mySerial(RX_PIN, TX_PIN);  // Uno example
 //HardwareSerial mySerial(1);                              // ESP32 Example
 
-TM1637Display displej(CLK, DIO);
+// TM1637Display displej(CLK, DIO);
 
 unsigned long getDataTimer = 0;  // Variable to store timer interval
+String thingData[] = {"", "", "", "", "", "", "", ""};
+int CO2;
+
+RunningMedian co2samples = RunningMedian(70);
+
+Ticker thingspeakTicker;
+
+void WIFI_Connect() {
+    WiFi.disconnect();
+    Serial.println("Connecting to WiFi...");
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(wifi_name, wifi_pass);
+
+    for (int i = 0; i < 60; i++) {
+        if (WiFi.status() != WL_CONNECTED) {
+            delay(250);
+            // digitalWrite(ledPin, LOW);
+            Serial.print(".");
+            delay(250);
+            // digitalWrite(ledPin, HIGH);
+        }
+    }
+    if (WiFi.status() == WL_CONNECTED) {
+        Serial.println("");
+        Serial.println("WiFi Connected");
+        Serial.println("IP address: ");
+        Serial.println(WiFi.localIP());
+    }
+    // digitalWrite(ledPin, 0);
+}
+
+void sendDataToThingspeak() {
+    // WIFI_Connect();
+    thingData[5] = String(co2samples.getMedian());
+
+    if (WiFi.status() == WL_CONNECTED) {
+        WiFiClient client;
+
+        HTTPClient httpClient1;
+
+        String url = "http://api.thingspeak.com/update?api_key=TRBAF4LV7U76SVST";
+        url += thingData[0] != "" ? "&field1=" + thingData[0] : "";
+        url += thingData[1] != "" ? "&field2=" + thingData[1] : "";
+        url += thingData[2] != "" ? "&field3=" + thingData[2] : "";
+        url += thingData[3] != "" ? "&field4=" + thingData[3] : "";
+        url += thingData[4] != "" ? "&field5=" + thingData[4] : "";
+        url += thingData[5] != "" ? "&field6=" + thingData[5] : "";
+        url += thingData[6] != "" ? "&field7=" + thingData[6] : "";
+        url += thingData[7] != "" ? "&field8=" + thingData[7] : "";
+        Serial.println(url);
+        if (httpClient1.begin(client, url + "\r\n\r\n\r\n")) {
+            int httpCode = httpClient1.GET();
+            Serial.printf("Thingspeak code: %d\n", httpCode);
+            if (httpCode > 0) {
+                String payload = httpClient1.getString();
+                if (httpCode == HTTP_CODE_OK) {
+                    Serial.print("Data sent to Thingspeak: ");
+                    Serial.println(payload);
+                } else {
+                    Serial.println("Cannot send data to Thingspeak!");
+                }
+            }
+            httpClient1.end();
+        } else {
+            Serial.printf("[HTTP} Unable to connect\n");
+        }
+
+        for (int i = 0; i < 8; i++) {
+            thingData[i] = "";
+        }
+    }
+    // WiFi.disconnect();
+}
 
 void setup() {
     Serial.begin(9600);  // For ESP32 baudarte is 115200 etc.
@@ -29,22 +113,34 @@ void setup() {
 
     myMHZ19.autoCalibration(false);  // Turn auto calibration ON (disable with autoCalibration(false))
 
-    displej.setBrightness(10);
+    // displej.setBrightness(10);
 
-    pinMode(7, INPUT_PULLUP);
+    // pinMode(7, INPUT_PULLUP);
+    WIFI_Connect();
+
+    thingspeakTicker.attach(120, sendDataToThingspeak);
 }
 
 void loop() {
-    int val = 0;
-    val = digitalRead(7);  // read input value
-    if (val == LOW) {     // check if the input is HIGH (button released)
-        Serial.println("CALIBRATION");
-        myMHZ19.calibrateZero();
-    }
-    if (millis() - getDataTimer >= 2000)  // Check if interval has elapsed (non-blocking delay() equivilant)
-    {
-        int CO2;  // Buffer for CO2
+    unsigned long currentMillis = millis();
 
+    if (currentMillis - previousMillis >= interval) {
+        if (WiFi.status() != WL_CONNECTED) {
+            Serial.println("wifi disconnected ");
+            WIFI_Connect();
+        }
+        // save the last time you blinked the LED
+        previousMillis = currentMillis;
+    }
+
+    // int val = 0;
+    // val = digitalRead(7);  // read input value
+    // if (val == LOW) {     // check if the input is HIGH (button released)
+    //     Serial.println("CALIBRATION");
+    //     myMHZ19.calibrateZero();
+    // }
+    if (millis() - getDataTimer >= 20000)  // Check if interval has elapsed (non-blocking delay() equivilant)
+    {
         /* note: getCO2() default is command "CO2 Unlimited". This returns the correct CO2 reading even 
         if below background CO2 levels or above range (useful to validate sensor). You can use the 
         usual documented command with getCO2(false) */
@@ -65,135 +161,8 @@ void loop() {
 
         getDataTimer = millis();  // Update interval
 
-        displej.showNumberDec(CO2, false);
-        delay(2000);
-        displej.showNumberDec(Temp, false);
-        delay(2000);
+        if (CO2 > 0) {
+            co2samples.add(CO2);
+        }
     }
 }
-
-// /*
-//     NOTE - the order of functions is important for correct
-//     calibration.
-//     Where other CO2 sensors require an nitrogen atmosphere to "zero"
-//     the sensor CO2 reference, the MHZ19 "zero" (confusingly) refers to the
-//     background CO2 level hardcoded into the device at 400ppm (getBackgroundCO2()
-//     sends a command to the device to retrieve the value);
-//     The best start for your sensor is to wait till CO2 values are as close to background
-//     levels as possible (currently an average of ~418ppm). Usually at night time and outside
-//     if possible, otherwise when the house has been unoccupied for as long as possible such.
-//     HOW TO USE:
-//     ----- Hardware Method  -----
-//     By pulling the zero HD low (0V) for 7 Secs as per the datasheet.
-//     ----- Software Method -----
-//     Run this example while in an ideal environment (I.e. restarting the device). Once
-//     restarted, disconnect MHZ19 from device and upload a new sketch to avoid
-//     recalibration.
-
-//     ----- Auto calibration ----
-//     If you are using auto calibration, the sensor will adjust its self every 24 hours
-//     (note here, the auto calibration algorithm uses the lowest observe CO2 value
-//     for that set of 24 hours as the zero - so, if your device is under an environment
-//     which does not fall to these levels, consider turning this off in your setup code).
-
-//     If autoCalibration is set to "false", then getting the background calibration levels
-//     correct at first try is essential.
-// */
-
-// #include <Arduino.h>
-// #include "MHZ19.h"
-// #include <SoftwareSerial.h>                                // Remove if using HardwareSerial or non-uno library compatable device
-
-// #define RX_PIN 10
-// #define TX_PIN 11
-// #define BAUDRATE 9600                                      // Native to the sensor (do not change)
-
-// MHZ19 myMHZ19;
-// SoftwareSerial mySerial(RX_PIN, TX_PIN);    // Uno example
-// //HardwareSerial mySerial(1);               // ESP32 Example
-
-// unsigned long getDataTimer = 0;
-
-// void verifyRange(int range);
-
-// void setup()
-// {
-//     Serial.begin(9600);
-
-//     mySerial.begin(BAUDRATE);                                    // Uno example: Begin Stream with MHZ19 baudrate
-//     //mySerial.begin(BAUDRATE, SERIAL_8N1, RX_PIN, TX_PIN);      // ESP32 Example
-
-//     myMHZ19.begin(mySerial);                                // *Important, Pass your Stream reference
-
-//     /*            ### setRange(value)###
-//        Basic:
-//        setRange(value) - set range to value (advise 2000 or 5000).
-//        setRange()      - set range to 2000.
-//        Advanced:
-//        Use verifyRange(int range) from this code at the bottom.
-//     */
-
-//     myMHZ19.setRange(2000);
-
-//     /*            ###calibrateZero()###
-//        Basic:
-//        calibrateZero() - request zero calibration
-//        Advanced:
-//        In Testing.
-//     */
-
-//     myMHZ19.calibrateZero();
-
-//     /*             ### setSpan(value)###
-//        Basic:
-//        setSpan(value) - set span to value (strongly recommend 2000)
-//        setSpan()      - set span to 2000;
-//     */
-
-//     myMHZ19.setSpan(2000);
-
-//     /*            ###autoCalibration(false)###
-//        Basic:
-//        autoCalibration(false) - turns auto calibration OFF. (automatically sent before defined period elapses)
-//        autoCalibration(true)  - turns auto calibration ON.
-//        autoCalibration()      - turns auto calibration ON.
-//        Advanced:
-//        autoCalibration(true, 12) - turns autocalibration ON and calibration period to 12 hrs (maximum 24hrs).
-//     */
-
-//     myMHZ19.autoCalibration(false);
-
-// }
-
-// void loop()
-// {
-//     if (millis() - getDataTimer >= 2000)     // Check if interval has elapsed (non-blocking delay() equivilant)
-//     {
-//         int CO2;
-//         CO2 = myMHZ19.getCO2();
-
-//         Serial.print("CO2 (ppm): ");
-//         Serial.println(CO2);
-
-//         int8_t Temp;                           // Buffer for temperature
-//         Temp = myMHZ19.getTemperature();       // Request Temperature (as Celsius)
-
-//         Serial.print("Temperature (C): ");
-//         Serial.println(Temp);
-
-//         getDataTimer = millis();              // Update inerval
-//     }
-// }
-
-// void verifyRange(int range)
-// {
-//     Serial.println("Requesting new range.");
-
-//     myMHZ19.setRange(range);                             // request new range write
-
-//     if (myMHZ19.getRange() == range)                     // Send command to device to return it's range value.
-//         Serial.println("Range successfully applied.");   // Success
-
-//     else
-//         Serial.println("Failed to apply range.");        // Failed
-// }
