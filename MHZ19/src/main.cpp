@@ -2,7 +2,7 @@
 #include <ESP8266HTTPClient.h>
 #include <ESP8266WiFi.h>
 #include <SoftwareSerial.h>  // Remove if using HardwareSerial or non-uno library compatable device
-#include "MHZ19.h"           // include main library
+#include "MHZ19.h"  // include main library
 #include "RunningMedian.h"
 
 // #define RX_PIN 10      // Rx pin which the MHZ19 Tx pin is attached to
@@ -118,6 +118,7 @@ void setup() {
 
 void loop() {
     unsigned long currentMillis = millis();
+
     if (currentMillis - previousMillis >= interval) {
         if (WiFi.status() != WL_CONNECTED) {
             Serial.println("wifi disconnected ");
@@ -133,10 +134,9 @@ void loop() {
     //     Serial.println("CALIBRATION");
     //     myMHZ19.calibrateZero();
     // }
-    sendTimer = getDataTimer = millis();
-
-    if (millis() - sendTimer >= 40000) {
+    if (millis() - sendTimer >= 120000) {
         sendDataToThingspeak();
+        sendTimer = millis();  // Update interval
     }
     if (millis() - getDataTimer >= 20000)  // Check if interval has elapsed (non-blocking delay() equivilant)
     {
@@ -157,6 +157,8 @@ void loop() {
         Temp = myMHZ19.getTemperature();  // Request Temperature (as Celsius)
         Serial.print("Temperature (C): ");
         Serial.println(Temp);
+
+        getDataTimer = millis();  // Update interval
 
         if (CO2 > 0) {
             co2samples.add(CO2);
