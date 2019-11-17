@@ -22,10 +22,10 @@
       channelNumber: 855025, name: 'Rekuperace', key: 'K3M0RRW38L1UYBF8',
       fieldList: [
         { field: 1, axis: 'T', type: 'spline', step: '' },
-        { field: 2, axis: 'H', type: 'spline', step: '' },
+        { field: 2, axis: 'H', type: 'spline', step: '', dashStyle: 'Dot' },
         { field: 4, axis: 'V', type: 'line', step: 'left' },
-        { field: 5, axis: 'B', type: 'line', step: 'left' },
-        { field: 6, axis: 'A', type: 'spline', step: '' },]
+        { field: 5, axis: 'B', type: 'line', step: 'left'},
+        { field: 6, axis: 'C', type: 'spline', step: '', lineWidth: 3 },]
     });
 
     // user's timezone offset
@@ -273,25 +273,42 @@
           },
           {
             title: {
-              text: 'Pressure'
+              text: 'CO2'
             },
             opposite: true,
-            visible: false,
-            id: 'A'
+            visible: true,
+            id: 'C',
+            allowDecimals: false,
+            plotLines: [
+              {
+                value: 1000,
+                color: 'red',
+                width: 1,
+                id: 'plot-line-1',
+                zIndex: 5,
+              },
+              {
+                value: 600,
+                color: 'green',
+                width: 1,
+                id: 'plot-line-2',
+                zIndex: 5,
+              }
+            ],
           },
           {
             id: 'V',
             maxPadding: 5,
             labels: {
               enabled: false
-            }
+            },
           },
           {
             id: 'B',
             maxPadding: 5,
             labels: {
               enabled: false
-            }
+            },
           }],
           exporting: {
             enabled: true,
@@ -325,16 +342,19 @@
               name: channelKeys[channelIndex].fieldList[fieldIndex].name,
               type: channelKeys[channelIndex].fieldList[fieldIndex].type,
               step: channelKeys[channelIndex].fieldList[fieldIndex].step,
+              dashStyle: channelKeys[channelIndex].fieldList[fieldIndex].dashStyle,
+              lineWidth: channelKeys[channelIndex].fieldList[fieldIndex].lineWidth ? channelKeys[channelIndex].fieldList[fieldIndex].lineWidth : 1,
             });
           }
         }
+        
         // set chart labels here so that decoding occurs properly
         //chartOptions.title.text = data.channel.name;
         chartOptions.xAxis.title.text = 'Date';
 
         // draw the chart
         dynamicChart = new Highcharts.StockChart(chartOptions);
-
+        
         // update series number to account for the navigator series (The historical series at the bottom) which is the first series.
         for (var channelIndex = 0; channelIndex < channelKeys.length; channelIndex++)  // iterate through each channel
         {

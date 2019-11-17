@@ -160,7 +160,7 @@ void loop() {
 
         getDataTimer = millis();  // Update interval
 
-        if (CO2 > 0) {
+        if (CO2 > 0 && CO2 < 5000) {
             co2samples.add(CO2);
         }
     }

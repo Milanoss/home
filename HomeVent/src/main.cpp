@@ -145,16 +145,22 @@ void sendDataToThingspeak() {
             if (httpCode == HTTP_CODE_OK) {
                 log("Data sent to Thingspeak: ");
                 log(payload);
-                thingDataValid = false;
-                for (int i = 0; i < 8; i++) {
-                    if (thingData[i] != "") {
-                        lastData[i] = thingData[i];
+                if (!payload.startsWith("0")) {
+                    thingDataValid = false;
+                    for (int i = 0; i < 8; i++) {
+                        if (thingData[i] != "") {
+                            lastData[i] = thingData[i];
+                        }
+                        thingData[i] = "";
                     }
-                    thingData[i] = "";
+                } else {
+                    log("Cannot send data to Thingspeak0!");
                 }
             } else {
-                log("Cannot send data to Thingspeak!");
+                log("Cannot send data to Thingspeak1!");
             }
+        } else {
+            log("Cannot send data to Thingspeak2!");
         }
         httpClient2.end();
     }
@@ -179,7 +185,7 @@ void startVent() {
     ventRunning = true;
     digitalWrite(VENT_RELAY_PIN, LOW);
     thingDataValid = true;
-    thingData[3] = "2";
+    thingData[3] = "1";
 }
 
 void stopVent() {
@@ -187,7 +193,7 @@ void stopVent() {
     digitalWrite(VENT_RELAY_PIN, HIGH);
     ventRunning = false;
     thingDataValid = true;
-    thingData[3] = "1";
+    thingData[3] = "0";
 }
 
 void countNextTimes(time_t tNow) {
