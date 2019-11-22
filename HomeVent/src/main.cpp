@@ -18,7 +18,7 @@ String logString = "";
 int interval = 100;
 unsigned long previousMillis = 0;
 
-const char *wifi_name = "TP-LINK_F092";
+const char *wifi_name = "TP-LINK_GUEST_F092";
 const char *wifi_pass = "1takovenormalnipripojeni2takovenormalnipripojeni3#";
 // const char *wifi_name = "Tieto Guest";
 // const char *wifi_pass = "k9wh1sper";
@@ -520,7 +520,7 @@ void setup() {
     httpClient1.setReuse(false);
     // httpClient2.setReuse(true);
 
-    weatherTicker.attach(45, loopWeather);
+    weatherTicker.attach(125, loopWeather);
     thingSpeakTicker.attach(30, loopThingSpeakSend);
 
     EEPROM.begin(25);

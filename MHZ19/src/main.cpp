@@ -13,7 +13,7 @@
 
 #define CLK 2
 #define DIO 3
-const String wifi_name = "TP-LINK_F092";
+const String wifi_name = "TP-LINK_GUEST_F092";
 const String wifi_pass = "1takovenormalnipripojeni2takovenormalnipripojeni3#";
 
 int interval = 100;
