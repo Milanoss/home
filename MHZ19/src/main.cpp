@@ -2,7 +2,7 @@
 #include <ESP8266HTTPClient.h>
 #include <ESP8266WiFi.h>
 #include <SoftwareSerial.h>  // Remove if using HardwareSerial or non-uno library compatable device
-#include "MHZ19.h"  // include main library
+#include "MHZ19.h"           // include main library
 #include "RunningMedian.h"
 
 // #define RX_PIN 10      // Rx pin which the MHZ19 Tx pin is attached to
@@ -29,8 +29,10 @@ unsigned long getDataTimer = 0;  // Variable to store timer interval
 unsigned long sendTimer = 0;
 String thingData[] = {"", "", "", "", "", "", "", ""};
 int CO2;
+float Temp;
 
-RunningMedian co2samples = RunningMedian(70);
+RunningMedian co2samples = RunningMedian(10);
+RunningMedian tempSamples = RunningMedian(10);
 
 void WIFI_Connect() {
     WiFi.disconnect();
@@ -58,8 +60,13 @@ void WIFI_Connect() {
 
 void sendDataToThingspeak() {
     // WIFI_Connect();
-    thingData[5] = String((int)co2samples.getMedian());
-    co2samples.clear();
+    float medianCo2 = co2samples.getMedian();
+    float medianTemp = tempSamples.getMedian();
+    if (isnan(medianCo2) || isnan(medianTemp)) {
+        return;
+    }
+    thingData[5] = String((int)medianCo2);
+    thingData[6] = String(medianTemp);
 
     if (WiFi.status() == WL_CONNECTED) {
         WiFiClient client;
@@ -134,7 +141,7 @@ void loop() {
     //     Serial.println("CALIBRATION");
     //     myMHZ19.calibrateZero();
     // }
-    if (millis() - sendTimer >= 120000) {
+    if (millis() - sendTimer >= 300000) {
         sendDataToThingspeak();
         sendTimer = millis();  // Update interval
     }
@@ -145,23 +152,22 @@ void loop() {
         usual documented command with getCO2(false) */
 
         CO2 = myMHZ19.getCO2();  // Request CO2 (as ppm)
+        Temp = myMHZ19.getTemperature(true, true);
+        if (myMHZ19.errorCode == RESULT_OK && CO2 > 0 && CO2 < 5000) {
+            co2samples.add(CO2);
+            Serial.print("CO2 (ppm): ");
+            Serial.println(CO2);
+            tempSamples.add(Temp);
+            Serial.print("Temperature (C): ");
+            Serial.println(Temp);
+        }
         // Serial.println("getCO2(false)" + String(myMHZ19.getCO2(false)));
         // Serial.println("getCO2(true)" + String(myMHZ19.getCO2(true)));
         // Serial.println("getCO2Raw(false)" + String(myMHZ19.getCO2Raw(false)));
         // Serial.println("getCO2Raw(true)" + String(myMHZ19.getCO2Raw(true)));
 
-        Serial.print("CO2 (ppm): ");
-        Serial.println(CO2);
-
-        int8_t Temp;                      // Buffer for temperature
-        Temp = myMHZ19.getTemperature();  // Request Temperature (as Celsius)
-        Serial.print("Temperature (C): ");
-        Serial.println(Temp);
+        // Request Temperature (as Celsius)
 
         getDataTimer = millis();  // Update interval
-
-        if (CO2 > 0 && CO2 < 5000) {
-            co2samples.add(CO2);
-        }
     }
 }
