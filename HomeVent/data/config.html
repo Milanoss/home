@@ -52,6 +52,19 @@
             xh.open("PUT", url, true);
             xh.send(null);
         };
+
+        function sendTimeResetRequest() {
+            var xh = new XMLHttpRequest();
+            xh.onreadystatechange = function () {
+                if (xh.readyState == 4) {
+                    if (xh.status == 200) {
+                    }
+                }
+            };
+            var url = "/api/timereset";
+            xh.open("PUT", url, true);
+            xh.send(null);
+        }
     </script>
 </head>
 
@@ -59,6 +72,7 @@
     <div class='container'>
         <button class="btn success" onclick="location.href='/';">Back</button>
         <button class="btn success" onclick="sendRequest();location.href='/';">Save</button>
+        <button class="btn success" onclick="sendTimeResetRequest();">Time</button>
         <div class="vent">
             <span class="hour">0</span>
             <input type="range" min="0" max="60" value="10" class="slider" id="ventConfig0"
