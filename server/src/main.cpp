@@ -7,10 +7,10 @@
 #include <timelib.h>
 #include "ArduinoJson.h"
 
-// #define WIFI_NAME "TP-LINK_GUEST_F092"
-// #define WIFI_PASS "1takovenormalnipripojeni2takovenormalnipripojeni3#"
-#define WIFI_NAME "Tieto Guest"
-#define WIFI_PASS "k9wh1sper"
+#define WIFI_NAME "TP-LINK_GUEST_F092"
+#define WIFI_PASS "1takovenormalnipripojeni2takovenormalnipripojeni3#"
+// #define WIFI_NAME "Tieto Guest"
+// #define WIFI_PASS "k9wh1sper"
 
 #define SENSOR_CO2_MAX 1000
 
@@ -94,7 +94,6 @@ void wifiEvent(WiFiEvent_t event) {
         case SYSTEM_EVENT_AP_START:
             log("IP address AP: ");
             log(WiFi.softAPIP().toString());
-            WiFi.softAPsetHostname("test2");
             break;
         case SYSTEM_EVENT_AP_STOP:
             break;
@@ -103,7 +102,6 @@ void wifiEvent(WiFiEvent_t event) {
         case SYSTEM_EVENT_AP_STADISCONNECTED:
             break;
         case SYSTEM_EVENT_STA_START:
-            WiFi.setHostname("test1");
             break;
         case SYSTEM_EVENT_STA_GOT_IP:
             log("IP address: ");
@@ -117,6 +115,8 @@ void WIFI_Connect() {
     WiFi.disconnect();
     log("Connecting to WiFi...");
     WiFi.mode(WIFI_AP_STA);
+    // WiFi.setHostname("test1");
+    // WiFi.softAPsetHostname("test2");
     WiFi.softAP("HOME", "12345678");
     WiFi.begin(WIFI_NAME, WIFI_PASS);
     WiFi.onEvent(wifiEvent);
@@ -270,6 +270,8 @@ void sensorRequest(AsyncWebServerRequest *request) {
             if (SENSOR_CO2_MAX < intValue) {
                 countNextManTimes(10);
                 startVent();
+            } else {
+                stopVent();
             }
         }
     }
@@ -431,7 +433,7 @@ void setup() {
     server.onNotFound([](AsyncWebServerRequest *request) { request->send(404); });
     server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
     server.on("/api/timereset", HTTP_PUT, updateTimeRequest);
-    server.on("/api/sensor", HTTP_PUT, sensorRequest);
+    server.on("/api/sensor", HTTP_GET, sensorRequest);
     server.on("/api", HTTP_GET, handleApiGet);
     server.on("/api", HTTP_PUT, handleApiPut);
     server.begin();
