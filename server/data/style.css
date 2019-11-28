@@ -1,0 +1,185 @@
+html {
+  font-family: "Open Sans", sans-serif;
+  display: block;
+  margin: 0px auto;
+  text-align: center;
+  color: #444444;
+}
+
+body {
+  margin: 0px;
+}
+
+a {
+  text-decoration: none;
+}
+
+h1 {
+  margin: 50px auto 30px;
+}
+
+.side-by-side {
+  display: table-cell;
+  vertical-align: middle;
+  position: relative;
+}
+
+.text {
+  font-weight: 600;
+  font-size: 19px;
+  width: 200px;
+}
+
+.reading {
+  font-weight: 300;
+  font-size: 50px;
+  padding-right: 25px;
+}
+
+.temperature .reading {
+  color: #f29c1f;
+}
+
+.humidity .reading {
+  color: #3b97d3;
+}
+
+.pressure .reading {
+  color: #26b99a;
+}
+
+.altitude .reading {
+  color: #955ba5;
+}
+
+.superscript {
+  font-size: 17px;
+  font-weight: 600;
+  position: absolute;
+  top: 10px;
+}
+
+.data {
+  padding: 10px;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.container {
+  display: table;
+  margin: 0 auto;
+  width: 100%;
+  max-width: 500px;
+}
+
+.icon {
+  width: 65px;
+}
+
+.btn {
+  border: 2px solid black;
+  background-color: white;
+  color: black;
+  padding: 5px 5px;
+  margin: 10px;
+  font-size: 16px;
+  cursor: pointer;
+  width: 100px;
+  text-align: center;
+  outline: 0px;
+}
+
+.success:active {
+  background-color: #4caf50;
+  box-shadow: 0 3px #666;
+  transform: translateY(2px);
+}
+
+.success {
+  border-color: #4caf50;
+  color: green;
+}
+
+.success:hover {
+  background-color: white;
+  color: green;
+}
+
+.danger:active {
+  background-color: #f44336;
+  box-shadow: 0 3px #666;
+  transform: translateY(2px);
+}
+
+.danger {
+  border-color: #f44336;
+  color: red;
+}
+
+.danger:hover {
+  background: white;
+  color: red;
+}
+
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 25px;
+  background: #d3d3d3;
+  outline: none;
+  opacity: 0.7;
+  -webkit-transition: 0.2s;
+  transition: opacity 0.2s;
+  margin: 10px;
+  width: 60%;
+}
+
+.slider:hover {
+  opacity: 1;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 40px;
+  height: 40px;
+  background: #4caf50;
+  cursor: pointer;
+}
+
+.slider::-moz-range-thumb {
+  width: 40px;
+  height: 40px;
+  background: #4caf50;
+  cursor: pointer;
+}
+
+.number {
+  padding-right: 20px;
+  width: 10px;
+}
+
+.buttons {
+  text-align: left;
+}
+
+.vent {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+}
+
+.hour {
+  width: 20px;
+}
+
+.time {
+  padding: 20px;
+}
+
+.boostConf {
+  padding-top: 20px;
+}
