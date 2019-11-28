@@ -264,9 +264,11 @@ void sensorRequest(AsyncWebServerRequest *request) {
         AsyncWebParameter *valuePar = request->getParam("value");
         String name = namePar->value().c_str();
         String value = valuePar->value().c_str();
+        log("Sensor " + name + ": " + value);
         if (name.equals("CO2")) {
             int intValue = value.toInt();
             thingData[TS_CO2] = intValue;
+            thingDataValid = true;
             if (SENSOR_CO2_MAX < intValue) {
                 countNextManTimes(10);
                 startVent();
@@ -278,7 +280,7 @@ void sensorRequest(AsyncWebServerRequest *request) {
     request->send(200);
 }
 
-Weather loadWeather() {  // ok
+Weather loadWeather() {
     float temp = 0;
     int pressure = 0;
     int humidity = 0;
@@ -309,7 +311,7 @@ Weather loadWeather() {  // ok
     return {result, pressure, humidity, temp};
 }
 
-void getWeather() {  //ok
+void getWeather() {
     log("Getting weather");
     Weather weather = loadWeather();
     if (weather.valid) {
