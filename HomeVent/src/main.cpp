@@ -109,7 +109,7 @@ void WIFI_Connect() {
     // digitalWrite(ledPin, 0);
 }
 
-void updateTime(AsyncWebServerRequest *request) {
+void updateTime() {
     log("loopUpdateTime");
     configTime(timezone * 3600, 0, NTP_SERVERS);
     delay(500);
@@ -121,9 +121,15 @@ void updateTime(AsyncWebServerRequest *request) {
     setTime(hour(t) + 1, minute(t), second(t), day(t), month(t), year(t));
     timeOK = true;
 }
+
+void updateTimeRequest(AsyncWebServerRequest *request) {
+    updateTime();
+    request->send(200);
+}
+
 void loopUpdateTime(void *pvParameters) {
     while (true) {
-        updateTime(nullptr);
+        updateTime();
         delay(86400000);  //one day
     }
 }
@@ -517,7 +523,7 @@ void setup() {
     });
     server.on("/api", HTTP_GET, handleApiGet);
     server.on("/api", HTTP_PUT, handleApiPut);
-    server.on("/api/timereset", HTTP_PUT, updateTime);
+    server.on("/api/timereset", HTTP_PUT, updateTimeRequest);
     server.on("/log", HTTP_GET, handleApiLog);
     server.begin();
 

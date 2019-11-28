@@ -141,7 +141,7 @@ void loop() {
     //     Serial.println("CALIBRATION");
     //     myMHZ19.calibrateZero();
     // }
-    if (millis() - sendTimer >= 300000) {
+    if (millis() - sendTimer >= 120000) {
         sendDataToThingspeak();
         sendTimer = millis();  // Update interval
     }
