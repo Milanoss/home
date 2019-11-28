@@ -269,7 +269,7 @@ void sensorRequest(AsyncWebServerRequest *request) {
             thingData[TS_CO2] = intValue;
             if (SENSOR_CO2_MAX < intValue) {
                 countNextManTimes(10);
-                handleVent();
+                startVent();
             }
         }
     }
@@ -330,7 +330,7 @@ void handleApiPut(AsyncWebServerRequest *request) {
         AsyncWebParameter *vt = request->getParam("ventTime");
         String ventTimeStr = vt->value().c_str();
         countNextManTimes(ventTimeStr.toInt());
-        handleVent();
+        startVent();
     }
     for (int i = 0; i < 24; i++) {
         bool count = false;
@@ -344,7 +344,7 @@ void handleApiPut(AsyncWebServerRequest *request) {
         if (count) {
             EEPROM.commit();
             countNextTimes(now());
-            handleVent();
+            stopVent();
         }
     }
     request->send(200);
