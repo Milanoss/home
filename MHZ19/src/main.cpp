@@ -24,12 +24,11 @@ SoftwareSerial mySerial(RX_PIN, TX_PIN);  // Uno example
 
 unsigned long getDataTimer = 0;  // Variable to store timer interval
 unsigned long sendTimer = 0;
-String thingData[] = {"", "", "", "", "", "", "", ""};
 int CO2;
 float Temp;
 
-RunningMedian co2samples = RunningMedian(10);
-RunningMedian tempSamples = RunningMedian(10);
+RunningMedian co2samples = RunningMedian(7);
+RunningMedian tempSamples = RunningMedian(7);
 
 void WIFI_Connect() {
     WiFi.disconnect();

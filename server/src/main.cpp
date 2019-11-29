@@ -22,7 +22,7 @@
 
 #define VENT_RELAY_PIN 22
 
-#define FILE_SIZE 100000
+#define FILE_SIZE 3000
 
 unsigned long logPointer = 0;
 
@@ -48,6 +48,8 @@ struct dstRule StartRule = {"CEST", Last, Sun, Mar, 2, 3600};
 struct dstRule EndRule = {"CET", Last, Sun, Oct, 2, 0};
 simpleDSTadjust dstAdjusted(StartRule, EndRule);
 
+String logString = "";
+
 AsyncWebServer server(80);
 
 HTTPClient httpClient1;
@@ -65,27 +67,13 @@ String formatTime(time_t time) {
     return addZero(hour(time)) + ":" + addZero(minute(time)) + ":" + addZero(second(time));
 }
 
-void initLog() {
-    File file = SPIFFS.open("/log.html", FILE_READ);
-    if (file.size() > FILE_SIZE) {
-        logPointer = 0;
-    } else {
-        logPointer = file.size();
-    }
-    file.close();
-}
-
 void log(String logMsg) {
     Serial.println(logMsg);
-    File file = SPIFFS.open("/log.html", FILE_APPEND);
-    if (file.size() > FILE_SIZE) {
-        logPointer = 0;
-        file.seek(0);
+    if (logString.length() + logMsg.length() > 1000) {
+        logString = "";
     } else {
-        file.seek(logPointer);
-        logPointer += file.print(formatTime(now()) + "|" + logMsg + "<br/>");
+        logString = logString + formatTime(now()) + "|" + logMsg + "\n";
     }
-    file.close();
 }
 
 void wifiEvent(WiFiEvent_t event) {
@@ -237,6 +225,7 @@ void countNextManTimes(int ventTime) {
     TimeElements te;
     breakTime(tNow, te);
     te.Minute = te.Minute + ventTime;
+    ventNextStart = tNow;
     ventNextStop = makeTime(te);
     printTime("Vent next m start: ", tNow);
     printTime("Vent next m stop: ", ventNextStop);
@@ -258,6 +247,13 @@ void handleVent() {
     }
 }
 
+void handleManVent(int time) {
+    countNextManTimes(time);
+    if (ventNextStart != ventNextStop) {  // click vent 0
+        startVent();
+    }
+}
+
 void sensorRequest(AsyncWebServerRequest *request) {
     if (request->hasParam("name") && request->hasParam("value")) {
         AsyncWebParameter *namePar = request->getParam("name");
@@ -270,10 +266,7 @@ void sensorRequest(AsyncWebServerRequest *request) {
             thingData[TS_CO2] = intValue;
             thingDataValid = true;
             if (SENSOR_CO2_MAX < intValue) {
-                countNextManTimes(10);
-                startVent();
-            } else {
-                stopVent();
+                handleManVent(10);
             }
         }
     }
@@ -329,12 +322,18 @@ void getWeather() {
     }
 }
 
+void handleApiLog(AsyncWebServerRequest *request) {
+    AsyncResponseStream *response = request->beginResponseStream("text/html");
+    response->print(logString);
+    request->send(response);
+    logString = "";
+}
+
 void handleApiPut(AsyncWebServerRequest *request) {
     if (request->hasParam("ventTime")) {
         AsyncWebParameter *vt = request->getParam("ventTime");
         String ventTimeStr = vt->value().c_str();
-        countNextManTimes(ventTimeStr.toInt());
-        startVent();
+        handleManVent(ventTimeStr.toInt());
     }
     for (int i = 0; i < 24; i++) {
         bool count = false;
@@ -425,8 +424,6 @@ void setup() {
 
     SPIFFS.begin();
 
-    initLog();
-
     log("SPIFFS total: " + String(SPIFFS.totalBytes()));
     log("SPIFFS used: " + String(SPIFFS.usedBytes()));
 
@@ -438,6 +435,7 @@ void setup() {
     server.on("/api/sensor", HTTP_GET, sensorRequest);
     server.on("/api", HTTP_GET, handleApiGet);
     server.on("/api", HTTP_PUT, handleApiPut);
+    server.on("/log", HTTP_GET, handleApiLog);
     server.begin();
 
     EEPROM.begin(25);
