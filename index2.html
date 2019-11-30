@@ -24,8 +24,10 @@
         { field: 1, axis: 'T', type: 'spline', step: '', lineWidth: 2 },
         { field: 2, axis: 'H', type: 'spline', step: '', dashStyle: 'Dot', lineWidth: 2 },
         { field: 3, axis: 'V', type: 'line', step: 'left', lineWidth: 2 },
-        { field: 5, axis: 'B', type: 'line', step: 'left', lineWidth: 2},
-        { field: 4, axis: 'C', type: 'spline', step: '', lineWidth: 2 },]
+        { field: 4, axis: 'C', type: 'spline', step: '', lineWidth: 2 },
+        { field: 5, axis: 'B', type: 'spline', step: '', lineWidth: 2 },
+        { field: 6, axis: 'D', type: 'spline', step: '', dashStyle: 'Dot', lineWidth: 2 }
+        ]
     });
 
     // user's timezone offset
@@ -256,15 +258,17 @@
           },
           yAxis: [{
             title: {
-              text: 'Temperature °C'
+              text: 'Temp out °C'
             },
+            min: -20,
+            max: 40,            
             opposite: false,
             id: 'T',
             allowDecimals: false,
           },
           {
             title: {
-              text: 'Humidity %'
+              text: 'Hum out %'
             },
             min: 0,
             max: 100,
@@ -304,12 +308,25 @@
             },
           },
           {
-            id: 'B',
-            maxPadding: 5,
-            labels: {
-              enabled: false
+            title: {
+              text: 'Temp in °C'
             },
-          }],
+            min: -20,
+            max: 40,
+            opposite: false,
+            id: 'B',
+            allowDecimals: false,
+          },
+          {
+            title: {
+              text: 'Hum in %'
+            },
+            min: 0,
+            max: 100,
+            id: 'D',                
+            allowDecimals: false,
+          }
+          ],
           exporting: {
             enabled: true,
             csv: {

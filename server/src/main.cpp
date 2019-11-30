@@ -19,6 +19,7 @@
 #define TS_VENT 2
 #define TS_CO2 3
 #define TS_TEMP_IN 4
+#define TS_HUMI_IN 5
 
 #define VENT_RELAY_PIN 22
 
@@ -255,20 +256,30 @@ void handleManVent(int time) {
 }
 
 void sensorRequest(AsyncWebServerRequest *request) {
-    if (request->hasParam("name") && request->hasParam("value")) {
-        AsyncWebParameter *namePar = request->getParam("name");
-        AsyncWebParameter *valuePar = request->getParam("value");
-        String name = namePar->value().c_str();
-        String value = valuePar->value().c_str();
-        log("Sensor " + name + ": " + value);
-        if (name.equals("CO2")) {
-            int intValue = value.toInt();
-            thingData[TS_CO2] = intValue;
-            thingDataValid = true;
-            if (SENSOR_CO2_MAX < intValue) {
-                handleManVent(10);
-            }
+    if (request->hasParam("CO2")) {
+        AsyncWebParameter *namePar = request->getParam("CO2");
+        String value = namePar->value().c_str();
+        log("Sensor CO2: " + value);
+        int intValue = value.toInt();
+        thingData[TS_CO2] = value;
+        thingDataValid = true;
+        if (SENSOR_CO2_MAX < intValue) {
+            handleManVent(10);
         }
+    }
+    if (request->hasParam("HUM")) {
+        AsyncWebParameter *namePar = request->getParam("HUM");
+        String value = namePar->value().c_str();
+        log("Sensor HUMIDITY: " + value);
+        thingData[TS_HUMI_IN] = value;
+        thingDataValid = true;
+    }
+    if (request->hasParam("TEMP")) {
+        AsyncWebParameter *namePar = request->getParam("TEMP");
+        String value = namePar->value().c_str();
+        log("Sensor TEMPERATURE: " + value);
+        thingData[TS_TEMP_IN] = value;
+        thingDataValid = true;
     }
     request->send(200);
 }

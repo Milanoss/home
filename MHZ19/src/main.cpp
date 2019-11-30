@@ -1,23 +1,24 @@
 #include <Arduino.h>
 #include <ESP8266HTTPClient.h>
 #include <ESP8266WiFi.h>
+#include <HTU21D.h>
 #include <SoftwareSerial.h>
 #include "MHZ19.h"
 #include "RunningMedian.h"
 
 // #define RX_PIN 10      // Rx pin which the MHZ19 Tx pin is attached to
 // #define TX_PIN 11      // Tx pin which the MHZ19 Rx pin is attached to
-#define RX_PIN 4       // Rx pin which the MHZ19 Tx pin is attached to
-#define TX_PIN 5       // Tx pin which the MHZ19 Rx pin is attached to
+#define RX_PIN 12      // Rx pin which the MHZ19 Tx pin is attached to
+#define TX_PIN 14      // Tx pin which the MHZ19 Rx pin is attached to
 #define BAUDRATE 9600  // Native to the sensor (do not change)
 
-#define CLK 2
-#define DIO 3
 const String wifi_name = "HOME";
 const String wifi_pass = "12345678";
 
 int interval = 100;
 unsigned long previousMillis = 0;
+
+HTU21D myHTU21D(HTU21D_RES_RH12_TEMP14);
 
 MHZ19 myMHZ19;                            // Constructor for MH-Z19 class
 SoftwareSerial mySerial(RX_PIN, TX_PIN);  // Uno example
@@ -25,10 +26,12 @@ SoftwareSerial mySerial(RX_PIN, TX_PIN);  // Uno example
 unsigned long getDataTimer = 0;  // Variable to store timer interval
 unsigned long sendTimer = 0;
 int CO2;
-float Temp;
+float temperature = 0;
+float humidity = 0;
 
 RunningMedian co2samples = RunningMedian(7);
 RunningMedian tempSamples = RunningMedian(7);
+RunningMedian humSamples = RunningMedian(7);
 
 void WIFI_Connect() {
     WiFi.disconnect();
@@ -57,25 +60,29 @@ void sendData() {
     HTTPClient httpClient1;
 
     float medianCo2 = co2samples.getMedian();
-    if (isnan(medianCo2)) {
+    float medianHum = humSamples.getMedian();
+    float medianTemp = tempSamples.getMedian();
+    if (isnan(medianCo2) || isnan(medianHum) || isnan(medianTemp)) {
         return;
     }
-    String value = String((int)medianCo2);
-    String url = "http://" + ip.toString() + "/api/sensor?name=CO2&value=" + value;
+    String co2 = String((int)medianCo2);
+    String hum = String((int)medianHum);
+    String temp = String(medianTemp);
+    String url = "http://" + ip.toString() + "/api/sensor?CO2=" + co2 + "&HUM=" + hum + "&TEMP=" + temp;
     Serial.println(url);
     if (httpClient1.begin(client, url)) {
-            int httpCode = httpClient1.GET();
-            Serial.printf("Sending code: %d\n", httpCode);
-            String payload = httpClient1.getString();
-            if (httpCode == HTTP_CODE_OK) {
-                Serial.print("Data sent");
-            } else {
-                Serial.println("Cannot send data!");
-            }
-            httpClient1.end();
+        int httpCode = httpClient1.GET();
+        Serial.printf("Sending code: %d\n", httpCode);
+        String payload = httpClient1.getString();
+        if (httpCode == HTTP_CODE_OK) {
+            Serial.print("Data sent");
         } else {
-            Serial.println("[HTTP} Unable to connect");
+            Serial.println("Cannot send data!");
         }
+        httpClient1.end();
+    } else {
+        Serial.println("[HTTP} Unable to connect");
+    }
 }
 
 void setup() {
@@ -88,6 +95,11 @@ void setup() {
     myMHZ19.begin(mySerial);
 
     myMHZ19.autoCalibration(false);
+
+    while (myHTU21D.begin() != true) {
+        Serial.print(F("HTU21D error"));
+        delay(5000);
+    }
 
     WIFI_Connect();
 }
@@ -113,21 +125,30 @@ void loop() {
         sendData();
         sendTimer = millis();
     }
-    if (millis() - getDataTimer >= 20000)
-    {
+    if (millis() - getDataTimer >= 20000) {
+        humidity = myHTU21D.readCompensatedHumidity();
+        temperature = myHTU21D.readTemperature();
+        if (temperature != HTU21D_ERROR) {
+            tempSamples.add(temperature);
+            Serial.print("Temperature (C): ");
+            Serial.println(temperature);
+        }
+        if (humidity != HTU21D_ERROR) {
+            humSamples.add(humidity);
+            Serial.print("Humidity (%): ");
+            Serial.println(humidity);
+        }
+
         /* note: getCO2() default is command "CO2 Unlimited". This returns the correct CO2 reading even 
         if below background CO2 levels or above range (useful to validate sensor). You can use the 
         usual documented command with getCO2(false) */
 
         CO2 = myMHZ19.getCO2();
-        Temp = myMHZ19.getTemperature(true, true);
+        // Temp = myMHZ19.getTemperature(true, true);
         if (myMHZ19.errorCode == RESULT_OK && CO2 > 0 && CO2 < 5000) {
             co2samples.add(CO2);
             Serial.print("CO2 (ppm): ");
             Serial.println(CO2);
-            tempSamples.add(Temp);
-            Serial.print("Temperature (C): ");
-            Serial.println(Temp);
         }
         // Serial.println("getCO2(false)" + String(myMHZ19.getCO2(false)));
         // Serial.println("getCO2(true)" + String(myMHZ19.getCO2(true)));
