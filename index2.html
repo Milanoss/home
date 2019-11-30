@@ -21,12 +21,12 @@
     channelKeys.push({
       channelNumber: 886565, name: 'Rekuperace', key: 'V5J2W53P05CO0VP1',
       fieldList: [
-        { field: 1, axis: 'T', type: 'spline', step: '', lineWidth: 2 },
-        { field: 2, axis: 'H', type: 'spline', step: '', dashStyle: 'Dot', lineWidth: 2 },
-        { field: 3, axis: 'V', type: 'line', step: 'left', lineWidth: 2 },
-        { field: 4, axis: 'C', type: 'spline', step: '', lineWidth: 2 },
-        { field: 5, axis: 'B', type: 'spline', step: '', lineWidth: 2 },
-        { field: 6, axis: 'D', type: 'spline', step: '', dashStyle: 'Dot', lineWidth: 2 }
+        { field: 1, axis: 'T', type: 'spline', step: '', lineWidth: 2, color: 'red' },
+        { field: 2, axis: 'H', type: 'spline', step: '', dashStyle: 'Dot', lineWidth: 2, color: 'DeepSkyBlue' },
+        { field: 3, axis: 'V', type: 'line', step: 'left', lineWidth: 2, color: 'green' },
+        { field: 4, axis: 'C', type: 'spline', step: '', lineWidth: 2, color: 'black' },
+        { field: 5, axis: 'B', type: 'spline', step: '', lineWidth: 2, color: 'darkred' },
+        { field: 6, axis: 'D', type: 'spline', step: '', dashStyle: 'Dot', lineWidth: 2, color: 'darkblue' }
         ]
     });
 
@@ -258,17 +258,17 @@
           },
           yAxis: [{
             title: {
-              text: 'Temp out °C'
+              text: 'Temperature °C'
             },
             min: -20,
             max: 40,            
             opposite: false,
             id: 'T',
-            allowDecimals: false,
+            allowDecimals: false,      
           },
           {
             title: {
-              text: 'Hum out %'
+              text: 'Humidity %'
             },
             min: 0,
             max: 100,
@@ -283,22 +283,7 @@
             visible: true,
             id: 'C',
             allowDecimals: false,
-            plotLines: [
-              {
-                value: 1000,
-                color: 'red',
-                width: 1,
-                id: 'plot-line-1',
-                zIndex: 5,
-              },
-              {
-                value: 600,
-                color: 'green',
-                width: 1,
-                id: 'plot-line-2',
-                zIndex: 5,
-              }
-            ],
+            plotBands:[{from:600, to:1000}],
           },
           {
             id: 'V',
@@ -315,7 +300,13 @@
             max: 40,
             opposite: false,
             id: 'B',
-            allowDecimals: false,
+            allowDecimals: false,   
+            labels: {
+              enabled: false,
+            }, 
+            title: {
+              enabled: false,
+            } 
           },
           {
             title: {
@@ -325,6 +316,12 @@
             max: 100,
             id: 'D',                
             allowDecimals: false,
+            labels: {
+              enabled: false,
+            }, 
+            title: {
+              enabled: false,
+            } 
           }
           ],
           exporting: {
@@ -361,6 +358,7 @@
               step: channelKeys[channelIndex].fieldList[fieldIndex].step,
               dashStyle: channelKeys[channelIndex].fieldList[fieldIndex].dashStyle,
               lineWidth: channelKeys[channelIndex].fieldList[fieldIndex].lineWidth ? channelKeys[channelIndex].fieldList[fieldIndex].lineWidth : 1,
+              color: channelKeys[channelIndex].fieldList[fieldIndex].color,
             });
           }
         }
