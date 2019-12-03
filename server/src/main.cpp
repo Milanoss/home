@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <ArduinoOTA.h>
 #include <EEPROM.h>
 #include <ESPAsyncWebServer.h>
 #include <HTTPClient.h>
@@ -34,6 +35,9 @@ struct Weather {
     float temp;
 };
 
+bool useSensor = true;
+bool useVent = true;
+
 String thingData[] = {"", "", "", "", "", "", "", ""};
 String lastData[] = {"", "", "", "", "", "", "", ""};
 bool thingDataValid;
@@ -55,6 +59,10 @@ AsyncWebServer server(80);
 
 HTTPClient httpClient1;
 HTTPClient httpClient2;
+
+String toString(bool b) {
+    return b ? "true" : "false";
+}
 
 String addZero(int value) {
     if (value < 10) {
@@ -192,6 +200,14 @@ void printTime(String text, time_t time) {
 }
 
 void startVent() {
+    if(!useVent){
+        log("Vent disabled");
+        return;
+    }
+    if(lastData[TS_CO2] && lastData[TS_CO2].toInt() < 1000 || lastData[TS_HUMI_OUT] && lastData[TS_HUMI_OUT].toInt() < 40){
+        log("Vent auto disabled");
+        return;
+    }
     log("Vent starting");
     ventRunning = true;
     digitalWrite(VENT_RELAY_PIN, LOW);
@@ -208,14 +224,17 @@ void stopVent() {
 }
 
 void countNextTimes(time_t tNow) {
-    int h = hour(tNow) + 1;
+    int h = hour(tNow);
     TimeElements te;
     breakTime(tNow, te);
     te.Second = 0;
     te.Minute = 0;
-    te.Hour = h;
-    ventNextStart = makeTime(te);
-    te.Minute = ventConfig[hour(ventNextStart)];
+    do {
+      h = h + 1;
+      te.Hour = h;
+      ventNextStart = makeTime(te);
+      te.Minute = ventConfig[hour(ventNextStart)];
+    } while (te.Minute == 0);
     ventNextStop = makeTime(te);
     printTime("Vent next start: ", ventNextStart);
     printTime("Vent next stop: ", ventNextStop);
@@ -263,7 +282,7 @@ void sensorRequest(AsyncWebServerRequest *request) {
         int intValue = value.toInt();
         thingData[TS_CO2] = value;
         thingDataValid = true;
-        if (SENSOR_CO2_MAX < intValue) {
+        if (SENSOR_CO2_MAX < intValue && useSensor) {
             handleManVent(10);
         }
     }
@@ -346,6 +365,18 @@ void handleApiPut(AsyncWebServerRequest *request) {
         String ventTimeStr = vt->value().c_str();
         handleManVent(ventTimeStr.toInt());
     }
+    if (request->hasParam("sensor")) {
+        AsyncWebParameter *vt = request->getParam("sensor");
+        String sensor = vt->value().c_str();
+        useSensor = sensor == "true";
+        log("Sensor: " + sensor);
+    }
+    if (request->hasParam("vent")) {
+        AsyncWebParameter *vt = request->getParam("vent");
+        String vent = vt->value().c_str();
+        useVent = vent == "true";
+        log("Ventilation: " + vent);
+    }
     for (int i = 0; i < 24; i++) {
         bool count = false;
         if (request->hasParam(String(i))) {
@@ -368,13 +399,18 @@ void handleApiGet(AsyncWebServerRequest *request) {
     time_t t = now();
     String json = "{\n";
     json += " \"data\":{\n";
-    json += "  \"temp\":\"" + lastData[TS_TEMP_OUT] + "\",\n";
-    json += "  \"humidity\":\"" + lastData[TS_HUMI_OUT] + "\",\n";
+    json += "  \"temp_out\":\"" + lastData[TS_TEMP_OUT] + "\",\n";
+    json += "  \"hum_out\":\"" + lastData[TS_HUMI_OUT] + "\",\n";
+    json += "  \"temp_in\":\"" + lastData[TS_TEMP_IN] + "\",\n";
+    json += "  \"hum_in\":\"" + lastData[TS_HUMI_IN] + "\",\n";
+    json += "  \"co2\":\"" + lastData[TS_CO2] + "\",\n";
     json += "  \"nextStart\":\"" + formatTime(ventNextStart) + "\",\n";
     json += "  \"nextStop\":\"" + formatTime(ventNextStop) + "\"\n";
     json += " },\n";
     json += " \"action\":{\n";
-    json += "  \"ventilation\":" + String(ventRunning);
+    json += "  \"ventilation\":" + toString(ventRunning) + ",\n";
+    json += "  \"vent\":" + toString(useVent) + ",\n";
+    json += "  \"sensor\":" + toString(useSensor) + "\n";
     json += " },";
     json += " \"config\":{\n";
     json += "  \"time\":{";
@@ -427,6 +463,40 @@ int checkValue(int val) {
     }
 }
 
+void otaInit() {
+    // Port defaults to 8266
+    // ArduinoOTA.setPort(8266);
+
+    // Hostname defaults to esp8266-[ChipID]
+    // ArduinoOTA.setHostname("myesp8266");
+
+    // No authentication by default
+    // ArduinoOTA.setPassword((const char *)"123");
+    ArduinoOTA.onStart([]() {
+        log("OTA Start");
+    });
+    ArduinoOTA.onEnd([]() {
+        log("OTA End");
+    });
+    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+        log("OTA Progress: " + String((progress / (total / 100))));
+    });
+    ArduinoOTA.onError([](ota_error_t error) {
+        log("OTA Error: " + String(error));
+        if (error == OTA_AUTH_ERROR)
+            log("OTA Auth Failed");
+        else if (error == OTA_BEGIN_ERROR)
+            log("OTA Begin Failed");
+        else if (error == OTA_CONNECT_ERROR)
+            log("OTA Connect Failed");
+        else if (error == OTA_RECEIVE_ERROR)
+            log("OTA Receive Failed");
+        else if (error == OTA_END_ERROR)
+            log("OTA End Failed");
+    });
+    ArduinoOTA.begin();
+}
+
 void setup() {
     Serial.begin(115200);
 
@@ -458,10 +528,14 @@ void setup() {
     updateTime();
     countNextTimes(now());
 
+    otaInit();
+
     log("SETUP FINISHED");
 }
 
 void loop() {
+    ArduinoOTA.handle();
+
     static unsigned long wifiPrev = 0;
     if (millis() - wifiPrev >= 2000) {
         if (WiFi.status() != WL_CONNECTED) {

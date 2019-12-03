@@ -9,6 +9,7 @@
     <script type="text/javascript">
         var nextStart, nextStop;
         var esp32time, ventConfig;
+        var sensor, vent;
         function loadValues() {
             var xh = new XMLHttpRequest();
             xh.onreadystatechange = function () {
@@ -20,6 +21,8 @@
                         ventConfig = res.config.ventilation;
                         nextStart = res.data.nextStart;
                         nextStop = res.data.nextStop;
+                        sensor = res.action.sensor;
+                        vent = res.action.vent;
                         setValues();
                     }
                 }
@@ -28,6 +31,8 @@
             xh.send(null);
         };
         function setValues() {
+            document.getElementById("sensor").checked = sensor;
+            document.getElementById("vent").checked = vent;
             document.getElementById("esp32time").innerText = esp32time;
             document.getElementById("nextStart").innerText = nextStart;
             document.getElementById("nextStop").innerText = nextStop;
@@ -52,6 +57,8 @@
             for (i = 0; i < 24; i++) {
                 url = url + i + "=" + document.getElementById("ventConfig" + i + "value").innerText + "&";
             }
+            url = url + "sensor=" + document.getElementById("sensor").checked + "&";
+            url = url + "vent=" + document.getElementById("vent").checked + "&";
             xh.open("PUT", url, true);
             xh.send(null);
         };
@@ -76,6 +83,23 @@
         <button class="btn success" onclick="location.href='/';">Back</button>
         <button class="btn success" onclick="sendRequest();location.href='/';">Save</button>
         <button class="btn success" onclick="sendTimeResetRequest();">Time</button>
+        <div
+            style="display: flex; justify-content: space-around; height: 50px; align-items: center; line-height: 34px;">
+            <span>
+                Sensor
+                <label class="switch">
+                    <input type="checkbox" id="sensor">
+                    <span class="slider2 round"></span>
+                </label>
+            </span>
+            <span>
+                Vent
+                <label class="switch">
+                    <input type="checkbox" id="vent">
+                    <span class="slider2 round"></span>
+                </label>
+            </span>
+        </div>
         <div class="vent">
             <span class="hour">0</span>
             <input type="range" min="0" max="60" value="10" class="slider" id="ventConfig0"
