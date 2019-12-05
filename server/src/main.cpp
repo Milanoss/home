@@ -8,10 +8,26 @@
 #include <timelib.h>
 #include "ArduinoJson.h"
 
+// #define DEV
+#define VERSION 1.1
+
+#ifdef DEV
+#define THINGSPEAK_KEY "TRBAF4LV7U76SVST"
+#else
+#define THINGSPEAK_KEY "UUOUQ4MFC037UTYD"
+#endif
+
 #define WIFI_NAME "TP-LINK_GUEST_F092"
 #define WIFI_PASS "1takovenormalnipripojeni2takovenormalnipripojeni3#"
 // #define WIFI_NAME "Tieto Guest"
 // #define WIFI_PASS "k9wh1sper"
+
+#ifdef DEV
+#define AP_WIFI_NAME "HOME_DEV"
+#else
+#define AP_WIFI_NAME "HOME"
+#endif
+#define AP_WIFI_PASS "12345678"
 
 #define SENSOR_CO2_MAX 1000
 
@@ -40,6 +56,7 @@ bool useVent = true;
 
 String thingData[] = {"", "", "", "", "", "", "", ""};
 String lastData[] = {"", "", "", "", "", "", "", ""};
+time_t lastDataTime[8] = {};
 bool thingDataValid;
 
 time_t ventNextStart;
@@ -114,7 +131,7 @@ void WIFI_Connect() {
     WiFi.mode(WIFI_AP_STA);
     // WiFi.setHostname("test1");
     // WiFi.softAPsetHostname("test2");
-    WiFi.softAP("HOME", "12345678");
+    WiFi.softAP(AP_WIFI_NAME, AP_WIFI_PASS);
     WiFi.begin(WIFI_NAME, WIFI_PASS);
     WiFi.onEvent(wifiEvent);
 
@@ -156,7 +173,7 @@ void updateTimeRequest(AsyncWebServerRequest *request) {
 void sendDataToThingspeak() {
     if (thingDataValid && WiFi.status() == WL_CONNECTED) {
         log("Thingspeak data sending");
-        String url = "https://api.thingspeak.com/update?api_key=UUOUQ4MFC037UTYD";
+        String url = "https://api.thingspeak.com/update?api_key=" THINGSPEAK_KEY;
         url += thingData[0] != "" ? "&field1=" + thingData[0] : "";
         url += thingData[1] != "" ? "&field2=" + thingData[1] : "";
         url += thingData[2] != "" ? "&field3=" + thingData[2] : "";
@@ -199,28 +216,43 @@ void printTime(String text, time_t time) {
     log(text + " " + formatTime(time));
 }
 
+void setValue(int slot, String value) {
+    thingDataValid = true;
+    thingData[slot] = value;
+    lastData[slot] = value;
+    lastDataTime[slot] = now();
+}
+
+String getCorrectLastData(int channel) {
+    if (lastData[channel] && lastDataTime[TS_CO2] + 300 > now()) {
+        return lastData[channel];
+    } else {
+        return "";
+    }
+}
+
 void startVent() {
-    if(!useVent){
-        log("Vent disabled");
+    String co2 = getCorrectLastData(TS_CO2);
+    if (useSensor && co2 && co2.toInt() < 1000) {
+        log("Vent auto disabled value=" + co2 + ", time=" + formatTime(lastDataTime[TS_CO2]));
         return;
     }
-    if(lastData[TS_CO2] && lastData[TS_CO2].toInt() < 1000 || lastData[TS_HUMI_OUT] && lastData[TS_HUMI_OUT].toInt() < 40){
-        log("Vent auto disabled");
+    String hum = getCorrectLastData(TS_HUMI_IN);
+    if (useSensor && hum && hum.toInt() < 40) {
+        log("Vent auto disabled value=" + hum + ", time=" + formatTime(lastDataTime[TS_HUMI_IN]));
         return;
     }
     log("Vent starting");
     ventRunning = true;
     digitalWrite(VENT_RELAY_PIN, LOW);
-    thingDataValid = true;
-    thingData[TS_VENT] = "1";
+    setValue(TS_VENT, "1");
 }
 
 void stopVent() {
     log("Vent stopping");
     digitalWrite(VENT_RELAY_PIN, HIGH);
     ventRunning = false;
-    thingDataValid = true;
-    thingData[TS_VENT] = "0";
+    setValue(TS_VENT, "0");
 }
 
 void countNextTimes(time_t tNow) {
@@ -230,10 +262,10 @@ void countNextTimes(time_t tNow) {
     te.Second = 0;
     te.Minute = 0;
     do {
-      h = h + 1;
-      te.Hour = h;
-      ventNextStart = makeTime(te);
-      te.Minute = ventConfig[hour(ventNextStart)];
+        h = h + 1;
+        te.Hour = h;
+        ventNextStart = makeTime(te);
+        te.Minute = ventConfig[hour(ventNextStart)];
     } while (te.Minute == 0);
     ventNextStop = makeTime(te);
     printTime("Vent next start: ", ventNextStart);
@@ -280,8 +312,7 @@ void sensorRequest(AsyncWebServerRequest *request) {
         String value = namePar->value().c_str();
         log("Sensor CO2: " + value);
         int intValue = value.toInt();
-        thingData[TS_CO2] = value;
-        thingDataValid = true;
+        setValue(TS_CO2, value);
         if (SENSOR_CO2_MAX < intValue && useSensor) {
             handleManVent(10);
         }
@@ -290,15 +321,13 @@ void sensorRequest(AsyncWebServerRequest *request) {
         AsyncWebParameter *namePar = request->getParam("HUM");
         String value = namePar->value().c_str();
         log("Sensor HUMIDITY: " + value);
-        thingData[TS_HUMI_IN] = value;
-        thingDataValid = true;
+        setValue(TS_HUMI_IN, value);
     }
     if (request->hasParam("TEMP")) {
         AsyncWebParameter *namePar = request->getParam("TEMP");
         String value = namePar->value().c_str();
         log("Sensor TEMPERATURE: " + value);
-        thingData[TS_TEMP_IN] = value;
-        thingDataValid = true;
+        setValue(TS_TEMP_IN, value);
     }
     request->send(200);
 }
@@ -341,13 +370,11 @@ void getWeather() {
         log("Have weather");
         String temp = String(weather.temp);
         if (temp != lastData[TS_TEMP_OUT]) {
-            thingDataValid = true;
-            thingData[TS_TEMP_OUT] = temp;
+            setValue(TS_TEMP_OUT, temp);
         }
         String humidity = String(weather.humidity);
         if (humidity != lastData[TS_HUMI_OUT]) {
-            thingDataValid = true;
-            thingData[TS_HUMI_OUT] = humidity;
+            setValue(TS_HUMI_OUT, humidity);
         }
     }
 }
@@ -364,33 +391,34 @@ void handleApiPut(AsyncWebServerRequest *request) {
         AsyncWebParameter *vt = request->getParam("ventTime");
         String ventTimeStr = vt->value().c_str();
         handleManVent(ventTimeStr.toInt());
+        return;
     }
     if (request->hasParam("sensor")) {
         AsyncWebParameter *vt = request->getParam("sensor");
         String sensor = vt->value().c_str();
         useSensor = sensor == "true";
+        EEPROM.write(24, useSensor);
         log("Sensor: " + sensor);
     }
     if (request->hasParam("vent")) {
         AsyncWebParameter *vt = request->getParam("vent");
         String vent = vt->value().c_str();
         useVent = vent == "true";
+        EEPROM.write(25, useVent);
         log("Ventilation: " + vent);
     }
     for (int i = 0; i < 24; i++) {
-        bool count = false;
         if (request->hasParam(String(i))) {
             AsyncWebParameter *t = request->getParam(String(i));
             String vConfig = t->value().c_str();
             ventConfig[i] = vConfig.toInt();
             EEPROM.write(i, (byte)ventConfig[i]);
-            count = true;
         }
-        if (count) {
-            EEPROM.commit();
-            countNextTimes(now());
-            stopVent();
-        }
+    }
+    EEPROM.commit();
+    if (!useVent) {
+        countNextTimes(now());
+        stopVent();
     }
     request->send(200);
 }
@@ -399,11 +427,11 @@ void handleApiGet(AsyncWebServerRequest *request) {
     time_t t = now();
     String json = "{\n";
     json += " \"data\":{\n";
-    json += "  \"temp_out\":\"" + lastData[TS_TEMP_OUT] + "\",\n";
-    json += "  \"hum_out\":\"" + lastData[TS_HUMI_OUT] + "\",\n";
-    json += "  \"temp_in\":\"" + lastData[TS_TEMP_IN] + "\",\n";
-    json += "  \"hum_in\":\"" + lastData[TS_HUMI_IN] + "\",\n";
-    json += "  \"co2\":\"" + lastData[TS_CO2] + "\",\n";
+    json += "  \"temp_out\":\"" + getCorrectLastData(TS_TEMP_OUT) + "\",\n";
+    json += "  \"hum_out\":\"" + getCorrectLastData(TS_HUMI_OUT) + "\",\n";
+    json += "  \"temp_in\":\"" + getCorrectLastData(TS_TEMP_IN) + "\",\n";
+    json += "  \"hum_in\":\"" + getCorrectLastData(TS_HUMI_IN) + "\",\n";
+    json += "  \"co2\":\"" + getCorrectLastData(TS_CO2) + "\",\n";
     json += "  \"nextStart\":\"" + formatTime(ventNextStart) + "\",\n";
     json += "  \"nextStop\":\"" + formatTime(ventNextStop) + "\"\n";
     json += " },\n";
@@ -413,6 +441,9 @@ void handleApiGet(AsyncWebServerRequest *request) {
     json += "  \"sensor\":" + toString(useSensor) + "\n";
     json += " },";
     json += " \"config\":{\n";
+    json += "  \"version\": \"";
+    json += VERSION;
+    json += "\",\n";
     json += "  \"time\":{";
     json += "   \"year\":\"" + String(year(t)) + "\",\n";
     json += "   \"month\":\"" + addZero(month(t)) + "\",\n";
@@ -519,10 +550,12 @@ void setup() {
     server.on("/log", HTTP_GET, handleApiLog);
     server.begin();
 
-    EEPROM.begin(25);
+    EEPROM.begin(27);
     for (int i = 0; i < 24; i++) {
         ventConfig[i] = checkValue(EEPROM.read(i));
     }
+    useSensor = (boolean)EEPROM.read(24);
+    useVent = (boolean)EEPROM.read(25);
 
     thingDataValid = false;
     updateTime();
@@ -558,7 +591,7 @@ void loop() {
     }
 
     static unsigned long ventPrev = 0;
-    if (millis() - ventPrev >= 10000) {
+    if (millis() - ventPrev >= 10000 && useVent) {
         handleVent();
         ventPrev = millis();
     }

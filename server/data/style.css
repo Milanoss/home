@@ -48,6 +48,10 @@ h1 {
   color: #26b99a;
 }
 
+.co2 .reading {
+  color: #000000;
+}
+
 .altitude .reading {
   color: #955ba5;
 }
