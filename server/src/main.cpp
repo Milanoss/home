@@ -224,35 +224,11 @@ void setValue(int slot, String value) {
 }
 
 String getCorrectLastData(int channel) {
-    if (lastData[channel] && lastDataTime[TS_CO2] + 300 > now()) {
+    if (lastData[channel] && lastDataTime[channel] + 300 > now()) {
         return lastData[channel];
     } else {
         return "";
     }
-}
-
-void startVent() {
-    String co2 = getCorrectLastData(TS_CO2);
-    if (useSensor && co2 && co2.toInt() < 1000) {
-        log("Vent auto disabled value=" + co2 + ", time=" + formatTime(lastDataTime[TS_CO2]));
-        return;
-    }
-    String hum = getCorrectLastData(TS_HUMI_IN);
-    if (useSensor && hum && hum.toInt() < 40) {
-        log("Vent auto disabled value=" + hum + ", time=" + formatTime(lastDataTime[TS_HUMI_IN]));
-        return;
-    }
-    log("Vent starting");
-    ventRunning = true;
-    digitalWrite(VENT_RELAY_PIN, LOW);
-    setValue(TS_VENT, "1");
-}
-
-void stopVent() {
-    log("Vent stopping");
-    digitalWrite(VENT_RELAY_PIN, HIGH);
-    ventRunning = false;
-    setValue(TS_VENT, "0");
 }
 
 void countNextTimes(time_t tNow) {
@@ -270,6 +246,32 @@ void countNextTimes(time_t tNow) {
     ventNextStop = makeTime(te);
     printTime("Vent next start: ", ventNextStart);
     printTime("Vent next stop: ", ventNextStop);
+}
+
+void startVent() {
+    // String co2 = getCorrectLastData(TS_CO2);
+    // if (useSensor && co2 && co2.toInt() < 1000) {
+    //     log("Vent auto disabled value=" + co2 + ", time=" + formatTime(lastDataTime[TS_CO2]));
+    //     countNextTimes(now());
+    //     return;
+    // }
+    String hum = getCorrectLastData(TS_HUMI_IN);
+    if (useSensor && hum && hum.toInt() < 40) {
+        log("Vent auto disabled value=" + hum + ", time=" + formatTime(lastDataTime[TS_HUMI_IN]));
+        countNextTimes(now());
+        return;
+    }
+    log("Vent starting");
+    ventRunning = true;
+    digitalWrite(VENT_RELAY_PIN, LOW);
+    setValue(TS_VENT, "1");
+}
+
+void stopVent() {
+    log("Vent stopping");
+    digitalWrite(VENT_RELAY_PIN, HIGH);
+    ventRunning = false;
+    setValue(TS_VENT, "0");
 }
 
 void countNextManTimes(int ventTime) {
@@ -427,8 +429,8 @@ void handleApiGet(AsyncWebServerRequest *request) {
     time_t t = now();
     String json = "{\n";
     json += " \"data\":{\n";
-    json += "  \"temp_out\":\"" + getCorrectLastData(TS_TEMP_OUT) + "\",\n";
-    json += "  \"hum_out\":\"" + getCorrectLastData(TS_HUMI_OUT) + "\",\n";
+    json += "  \"temp_out\":\"" + lastData[TS_TEMP_OUT] + "\",\n";
+    json += "  \"hum_out\":\"" + lastData[TS_HUMI_OUT] + "\",\n";
     json += "  \"temp_in\":\"" + getCorrectLastData(TS_TEMP_IN) + "\",\n";
     json += "  \"hum_in\":\"" + getCorrectLastData(TS_HUMI_IN) + "\",\n";
     json += "  \"co2\":\"" + getCorrectLastData(TS_CO2) + "\",\n";
