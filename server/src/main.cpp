@@ -256,7 +256,7 @@ void startVent() {
     //     return;
     // }
     String hum = getCorrectLastData(TS_HUMI_IN);
-    if (useSensor && hum && hum.toInt() < 40) {
+    if (useSensor && hum && hum.toInt() < 40 && !ventRunning) {
         log("Vent auto disabled value=" + hum + ", time=" + formatTime(lastDataTime[TS_HUMI_IN]));
         countNextTimes(now());
         return;
