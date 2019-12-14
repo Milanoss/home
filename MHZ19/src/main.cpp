@@ -2,7 +2,7 @@
 #include <ESP8266HTTPClient.h>
 #include <ESP8266WiFi.h>
 #include <HTU21D.h>
-// #include <SoftwareSerial.h>
+#include <U8g2lib.h>
 #include "MHZ19.h"
 #include "RunningMedian.h"
 
@@ -20,9 +20,9 @@ unsigned long previousMillis = 0;
 
 HTU21D myHTU21D(HTU21D_RES_RH12_TEMP14);
 
-MHZ19 myMHZ19;                            // Constructor for MH-Z19 class
+MHZ19 myMHZ19;  // Constructor for MH-Z19 class
 // SoftwareSerial mySerial(RX_PIN, TX_PIN);  // Uno example
-HardwareSerial mySerial(1); 
+// HardwareSerial mySerial(1);
 
 unsigned long getDataTimer = 0;  // Variable to store timer interval
 unsigned long sendTimer = 0;
@@ -33,6 +33,84 @@ float humidity = 0;
 RunningMedian co2samples = RunningMedian(7);
 RunningMedian tempSamples = RunningMedian(7);
 RunningMedian humSamples = RunningMedian(7);
+
+#ifdef U8X8_HAVE_HW_SPI
+#include <SPI.h>
+#endif
+#ifdef U8X8_HAVE_HW_I2C
+#include <Wire.h>
+#endif
+
+U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, /* reset=*/U8X8_PIN_NONE);  // Adafruit ESP8266/32u4/ARM Boards + FeatherWing OLED
+
+static unsigned char teplota[] = {
+    0x80,
+    0x03,
+    0xC0,
+    0x07,
+    0xE0,
+    0x04,
+    0xE0,
+    0x07,
+    0xE0,
+    0x04,
+    0xE0,
+    0x07,
+    0xE0,
+    0x04,
+    0xE0,
+    0x07,
+    0xE0,
+    0x04,
+    0xF0,
+    0x0F,
+    0xF8,
+    0x1F,
+    0xF8,
+    0x1F,
+    0xF8,
+    0x1F,
+    0xF8,
+    0x1F,
+    0xF0,
+    0x0F,
+    0xE0,
+    0x07,
+};
+static unsigned char kapka[] = {
+    0x00,
+    0x00,
+    0x80,
+    0x01,
+    0xC0,
+    0x03,
+    0xE0,
+    0x07,
+    0xF0,
+    0x0F,
+    0xF0,
+    0x0F,
+    0xF8,
+    0x1F,
+    0xF8,
+    0x1B,
+    0xFC,
+    0x39,
+    0xFC,
+    0x39,
+    0xFC,
+    0x38,
+    0x78,
+    0x1C,
+    0xF8,
+    0x1F,
+    0xF0,
+    0x0F,
+    0xC0,
+    0x03,
+    0x00,
+    0x00,
+};
 
 void WIFI_Connect() {
     WiFi.disconnect();
@@ -86,27 +164,67 @@ void sendData() {
     }
 }
 
-void printErrorCode(){
+void printErrorCode() {
     // Serial.println("Communication error. Error Code: ");  // *Print error code using the library variable
     // Serial.println(myMHZ19.errorCode);                    //  holds the last recieved code
-}  
+}
 
-void setRange(int range){
+void setRange(int range) {
     // Serial.println("Setting range..");
 
-    myMHZ19.setRange(range);                                               // request new range write
+    myMHZ19.setRange(range);  // request new range write
 
     // if ((myMHZ19.errorCode == RESULT_OK) && (myMHZ19.getRange() == range)) //RESULT_OK is an alias from the library,
-        // Serial.println("Range successfully applied.");
+    // Serial.println("Range successfully applied.");
 
     // else
     // {
-        // printErrorCode();
+    // printErrorCode();
     // }
+}
+
+void show() {
+    float medianCo2 = co2samples.getMedian();
+    float medianHum = humSamples.getMedian();
+    float medianTemp = tempSamples.getMedian();
+    if (isnan(medianCo2)) {
+        medianCo2 = 0;
+    }
+    if (isnan(medianHum)) {
+        medianHum = 0;
+    }
+    if (isnan(medianTemp)) {
+        medianTemp = 0;
+    }
+
+    char tempStr[10];
+    sprintf(tempStr, "%0.1f", medianTemp);
+    String tempStr2 = String(tempStr) + "°C";
+
+    String humiStr = String((int)medianHum) + "%";
+
+    String co2Str = String((int)medianCo2) + " ppm";
+
+    u8g2.clearBuffer();
+    u8g2.setFont(u8g2_font_9x18B_mf);
+    u8g2.drawXBM(0, 0, 16, 16, teplota);
+    u8g2.drawUTF8(17, 13, tempStr2.c_str());
+
+    int width = u8g2.getDisplayWidth();
+    int x = width - u8g2.getUTF8Width(humiStr.c_str());
+    u8g2.drawXBM(width - 16, 0, 16, 16, kapka);
+    u8g2.drawUTF8(x - 16, 13, humiStr.c_str());
+
+    u8g2.setFont(u8g2_font_ImpactBits_tr);
+    x = (width - u8g2.getUTF8Width(co2Str.c_str())) / 2;
+    u8g2.drawUTF8(x, 28, co2Str.c_str());
+    u8g2.drawFrame(0, 0, width, u8g2.getDisplayHeight());
+    u8g2.sendBuffer();
 }
 
 void setup() {
     Serial.begin(9600);  // For ESP32 baudarte is 115200 etc.
+    // Serial.println("setup1");
 
     // mySerial.begin(BAUDRATE);
 
@@ -120,33 +238,16 @@ void setup() {
     myMHZ19.autoCalibration(false);
 
     while (myHTU21D.begin() != true) {
-        // Serial.print(F("HTU21D error"));
+        Serial.print(F("HTU21D error"));
         delay(5000);
     }
 
     WIFI_Connect();
 
+    u8g2.begin();
+    u8g2.enableUTF8Print();
+
     // delay(120000);
-}
-
-void validate(int CO2){
-    if (CO2 < 390 || CO2 > 2000)
-        {
-            Serial.println("Waiting for verification....");
-
-                Serial.println("Failed to verify.");
-                Serial.println("Requesting MHZ19 reset sequence");
-
-                myMHZ19.recoveryReset();                                            // Recovery Reset
-
-                Serial.println("Restarting MHZ19.");
-                Serial.println("Waiting for boot duration to elapse.....");
-
-                delay(30000);       
-                
-                Serial.println("Waiting for boot verification...");
-
-        }
 }
 
 void loop() {
@@ -196,6 +297,8 @@ void loop() {
         // Serial.println("getCO2(true)" + String(myMHZ19.getCO2(true)));
         // Serial.println("getCO2Raw(false)" + String(myMHZ19.getCO2Raw(false)));
         // Serial.println("getCO2Raw(true)" + String(myMHZ19.getCO2Raw(true)));
+        show();
+
         getDataTimer = millis();
     }
 
