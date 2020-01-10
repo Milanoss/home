@@ -184,26 +184,13 @@ void setRange(int range) {
 }
 
 void show() {
-    float medianCo2 = co2samples.getMedian();
-    float medianHum = humSamples.getMedian();
-    float medianTemp = tempSamples.getMedian();
-    if (isnan(medianCo2)) {
-        medianCo2 = 0;
-    }
-    if (isnan(medianHum)) {
-        medianHum = 0;
-    }
-    if (isnan(medianTemp)) {
-        medianTemp = 0;
-    }
-
     char tempStr[10];
-    sprintf(tempStr, "%0.1f", medianTemp);
+    sprintf(tempStr, "%0.1f", temperature);
     String tempStr2 = String(tempStr) + "°C";
 
-    String humiStr = String((int)medianHum) + "%";
+    String humiStr = String((int)humidity) + "%";
 
-    String co2Str = String((int)medianCo2) + " ppm";
+    String co2Str = String((int)CO2) + " ppm";
 
     u8g2.clearBuffer();
     u8g2.setFont(u8g2_font_9x18B_mf);
@@ -246,8 +233,36 @@ void setup() {
 
     u8g2.begin();
     u8g2.enableUTF8Print();
+    u8g2.setContrast(100);  // 0-255
 
     // delay(120000);
+}
+
+void validate(int CO2) {
+    static byte timeout = 0;
+    if (CO2 < 390 || CO2 > 2000) {
+        // Serial.println("Waiting for verification....");
+        timeout++;
+        if (timeout > 20) {
+            // Serial.println("Failed to stablise.");
+            // Serial.println("Requesting MHZ19 reset sequence");
+
+            myMHZ19.recoveryReset();  // Recovery Reset
+
+            // Serial.println("Restarting MHZ19.");
+            // Serial.println("Waiting for boot duration to elapse.....");
+
+            delay(30000);
+
+            // Serial.println("Waiting for boot stabisation...");
+
+            for (byte i = 0; i < 3; i++) {
+                myMHZ19.stablise();  // Stablisation check
+                if (myMHZ19.errorCode == RESULT_OK)
+                    break;
+            }
+        }
+    }
 }
 
 void loop() {
@@ -288,7 +303,7 @@ void loop() {
         CO2 = myMHZ19.getCO2();
         // Serial.print("CO2 (ppm): ");
         // Serial.println(CO2);
-        // validate(CO2);
+        validate(CO2);
         // Temp = myMHZ19.getTemperature(true, true);
         if (myMHZ19.errorCode == RESULT_OK && CO2 > 0 && CO2 < 5000) {
             co2samples.add(CO2);
