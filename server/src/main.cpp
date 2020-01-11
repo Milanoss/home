@@ -249,12 +249,12 @@ void countNextTimes(time_t tNow) {
 }
 
 void startVent() {
-    // String co2 = getCorrectLastData(TS_CO2);
-    // if (useSensor && co2 && co2.toInt() < 1000) {
-    //     log("Vent auto disabled value=" + co2 + ", time=" + formatTime(lastDataTime[TS_CO2]));
-    //     countNextTimes(now());
-    //     return;
-    // }
+    String co2 = getCorrectLastData(TS_CO2);
+    if (useSensor && co2 && co2.toInt() < 1000) {
+        log("Vent auto disabled value=" + co2 + ", time=" + formatTime(lastDataTime[TS_CO2]));
+        countNextTimes(now());
+        return;
+    }
     String hum = getCorrectLastData(TS_HUMI_IN);
     if (useSensor && hum && hum.toInt() < 40 && !ventRunning) {
         log("Vent auto disabled value=" + hum + ", time=" + formatTime(lastDataTime[TS_HUMI_IN]));
