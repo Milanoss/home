@@ -256,7 +256,7 @@ void startVent() {
         return;
     }
     String hum = getCorrectLastData(TS_HUMI_IN);
-    if (useSensor && hum && hum.toInt() < 40 && !ventRunning) {
+    if (useSensor && hum && hum.toInt() < 38 && !ventRunning) {
         log("Vent auto disabled value=" + hum + ", time=" + formatTime(lastDataTime[TS_HUMI_IN]));
         countNextTimes(now());
         return;
@@ -316,7 +316,7 @@ void sensorRequest(AsyncWebServerRequest *request) {
         int intValue = value.toInt();
         setValue(TS_CO2, value);
         if (SENSOR_CO2_MAX < intValue && useSensor) {
-            handleManVent(10);
+            handleManVent(15);
         }
     }
     if (request->hasParam("HUM")) {
