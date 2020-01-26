@@ -31,7 +31,7 @@
           }
         }
       };
-      xh.open("GET", "/api", true);
+      xh.open("GET", window.location.href.substring(0, window.location.href.lastIndexOf("/")) + "/api", true);
       xh.send(null);
     };
     function setValues() {
@@ -55,7 +55,7 @@
           }
         }
       };
-      xh.open("PUT", "/api?" + param + "=" + value, true);
+      xh.open("PUT", window.location.href.substring(0, window.location.href.lastIndexOf("/")) + "/api?" + param + "=" + value, true);
       xh.send(null);
     };
 
