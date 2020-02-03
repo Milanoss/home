@@ -12,8 +12,8 @@
 #define TX_PIN 15      // Tx pin which the MHZ19 Rx pin is attached to
 #define BAUDRATE 9600  // Native to the sensor (do not change)
 
-const String wifi_name = "HOME";
-const String wifi_pass = "12345678";
+const String wifi_name = "TP-LINK_GUEST_F092";
+const String wifi_pass = "1takovenormalnipripojeni2takovenormalnipripojeni3#";
 
 int interval = 100;
 unsigned long previousMillis = 0;
@@ -134,7 +134,7 @@ void WIFI_Connect() {
 }
 
 void sendData() {
-    IPAddress ip = WiFi.gatewayIP();
+    // IPAddress ip = WiFi.gatewayIP();
     WiFiClient client;
     HTTPClient httpClient1;
 
@@ -147,7 +147,7 @@ void sendData() {
     String co2 = String((int)medianCo2);
     String hum = String((int)medianHum);
     String temp = String(medianTemp);
-    String url = "http://" + ip.toString() + "/api/sensor?CO2=" + co2 + "&HUM=" + hum + "&TEMP=" + temp;
+    String url = "http://192.168.0.109/api/sensor?CO2=" + co2 + "&HUM=" + hum + "&TEMP=" + temp;
     // Serial.println(url);
     if (httpClient1.begin(client, url)) {
         int httpCode = httpClient1.GET();

@@ -101,6 +101,12 @@ h1 {
   transform: translateY(2px);
 }
 
+.success:disabled {
+  border-color: #666;
+  color: #666;
+  cursor: default;
+}
+
 .success {
   border-color: #4caf50;
   color: green;

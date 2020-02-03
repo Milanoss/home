@@ -22,13 +22,6 @@
 // #define WIFI_NAME "Tieto Guest"
 // #define WIFI_PASS "k9wh1sper"
 
-#ifdef DEV
-#define AP_WIFI_NAME "HOME_DEV"
-#else
-#define AP_WIFI_NAME "HOME"
-#endif
-#define AP_WIFI_PASS "12345678"
-
 #define SENSOR_CO2_MAX 1000
 
 #define TS_TEMP_OUT 0
@@ -128,10 +121,10 @@ void wifiEvent(WiFiEvent_t event) {
 void WIFI_Connect() {
     WiFi.disconnect();
     log("Connecting to WiFi...");
-    WiFi.mode(WIFI_AP_STA);
+    WiFi.mode(WIFI_MODE_STA);
     // WiFi.setHostname("test1");
     // WiFi.softAPsetHostname("test2");
-    WiFi.softAP(AP_WIFI_NAME, AP_WIFI_PASS);
+    // WiFi.softAP(AP_WIFI_NAME, AP_WIFI_PASS);
     WiFi.begin(WIFI_NAME, WIFI_PASS);
     WiFi.onEvent(wifiEvent);
 
@@ -248,15 +241,15 @@ void countNextTimes(time_t tNow) {
     printTime("Vent next stop: ", ventNextStop);
 }
 
-void startVent() {
+void startVent(bool force) {
     String co2 = getCorrectLastData(TS_CO2);
-    if (useSensor && co2 && co2.toInt() < 1000) {
+    if (!force && useSensor && co2 && co2.toInt() < 1000) {
         log("Vent auto disabled value=" + co2 + ", time=" + formatTime(lastDataTime[TS_CO2]));
         countNextTimes(now());
         return;
     }
     String hum = getCorrectLastData(TS_HUMI_IN);
-    if (useSensor && hum && hum.toInt() < 38 && !ventRunning) {
+    if (!force && useSensor && hum && hum.toInt() < 38 && !ventRunning) {
         log("Vent auto disabled value=" + hum + ", time=" + formatTime(lastDataTime[TS_HUMI_IN]));
         countNextTimes(now());
         return;
@@ -296,15 +289,15 @@ void handleVent() {
     } else {
         log("Vent not running");
         if (ventNextStart < tNow) {
-            startVent();
+            startVent(false);
         }
     }
 }
 
-void handleManVent(int time) {
+void handleManVent(int time, bool force) {
     countNextManTimes(time);
     if (ventNextStart != ventNextStop) {  // click vent 0
-        startVent();
+        startVent(force);
     }
 }
 
@@ -316,7 +309,7 @@ void sensorRequest(AsyncWebServerRequest *request) {
         int intValue = value.toInt();
         setValue(TS_CO2, value);
         if (SENSOR_CO2_MAX < intValue && useSensor) {
-            handleManVent(15);
+            handleManVent(15, false);
         }
     }
     if (request->hasParam("HUM")) {
@@ -392,7 +385,7 @@ void handleApiPut(AsyncWebServerRequest *request) {
     if (request->hasParam("ventTime")) {
         AsyncWebParameter *vt = request->getParam("ventTime");
         String ventTimeStr = vt->value().c_str();
-        handleManVent(ventTimeStr.toInt());
+        handleManVent(ventTimeStr.toInt(), true);
         return;
     }
     if (request->hasParam("sensor")) {

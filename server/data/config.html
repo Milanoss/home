@@ -40,6 +40,8 @@
                 document.getElementById("ventConfig" + i).value = ventConfig[i];
                 document.getElementById("ventConfig" + i + "value").innerText = ventConfig[i];
             }
+            document.getElementById("save1").disabled = false;
+            document.getElementById("save2").disabled = false;
         }
         function onBodyLoad() {
             loadValues();
@@ -72,7 +74,7 @@
                 }
             };
             var url = window.location.href.substring(0, window.location.href.lastIndexOf("/")) + "/api/timereset";
-            xh.open("PUT", url, true);
+            xh.open("PUT", url, false);
             xh.send(null);
         }
     </script>
@@ -81,7 +83,7 @@
 <body onload="onBodyLoad()">
     <div class='container'>
         <button class="btn success" onclick="window.history.back();">Back</button>
-        <button class="btn success" onclick="sendRequest();window.history.back();">Save</button>
+        <button id="save1" class="btn success" onclick="sendRequest();window.history.back();" disabled>Save</button>
         <button class="btn success" onclick="sendTimeResetRequest();">Time</button>
         <div
             style="display: flex; justify-content: space-around; height: 50px; align-items: center; line-height: 34px;">
@@ -245,7 +247,7 @@
             <output id="ventConfig23value" class="number">-</output>
         </div>
         <button class="btn success" onclick="window.history.back();">Back</button>
-        <button class="btn success" onclick="sendRequest();window.history.back();">Save</button>
+        <button id="save2" class="btn success" onclick="sendRequest();window.history.back();" disabled>Save</button>
         <div class="time"><span id="esp32time" /></div>
         <div class="time"><span id="nextStart" /></div>
         <div class="time"><span id="nextStop" /></div>
