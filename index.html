@@ -19,13 +19,15 @@
     // the 'T' Temperature left axis, or the 'O' Other right axis.
     var channelKeys = [];
     channelKeys.push({
-      channelNumber: 855025, name: 'Rekuperace', key: 'K3M0RRW38L1UYBF8',
+      channelNumber: 886565, name: 'Rekuperace', key: 'V5J2W53P05CO0VP1',
       fieldList: [
-        { field: 1, axis: 'T', type: 'spline', step: '' },
-        { field: 2, axis: 'H', type: 'spline', step: '', dashStyle: 'Dot' },
-        { field: 4, axis: 'V', type: 'line', step: 'left' },
-        { field: 5, axis: 'B', type: 'line', step: 'left'},
-        { field: 6, axis: 'C', type: 'spline', step: '', lineWidth: 3 },]
+        { field: 1, axis: 'T', type: 'spline', step: '', lineWidth: 2, color: 'red' },
+        { field: 2, axis: 'H', type: 'spline', step: '', dashStyle: 'Dot', lineWidth: 2, color: 'DeepSkyBlue' },
+        { field: 3, axis: 'V', type: 'line', step: 'left', lineWidth: 2, color: 'green' },
+        { field: 4, axis: 'C', type: 'spline', step: '', lineWidth: 2, color: 'black' },
+        { field: 5, axis: 'B', type: 'spline', step: '', lineWidth: 2, color: 'darkred' },
+        { field: 6, axis: 'D', type: 'spline', step: '', dashStyle: 'Dot', lineWidth: 2, color: 'darkblue' }
+        ]
     });
 
     // user's timezone offset
@@ -258,9 +260,11 @@
             title: {
               text: 'Temperature °C'
             },
+            min: -20,
+            max: 40,            
             opposite: false,
             id: 'T',
-            allowDecimals: false,
+            allowDecimals: false,      
           },
           {
             title: {
@@ -279,22 +283,7 @@
             visible: true,
             id: 'C',
             allowDecimals: false,
-            plotLines: [
-              {
-                value: 1000,
-                color: 'red',
-                width: 1,
-                id: 'plot-line-1',
-                zIndex: 5,
-              },
-              {
-                value: 600,
-                color: 'green',
-                width: 1,
-                id: 'plot-line-2',
-                zIndex: 5,
-              }
-            ],
+            plotBands:[{from:600, to:1000}],
           },
           {
             id: 'V',
@@ -304,12 +293,37 @@
             },
           },
           {
-            id: 'B',
-            maxPadding: 5,
-            labels: {
-              enabled: false
+            title: {
+              text: 'Temp in °C'
             },
-          }],
+            min: -20,
+            max: 40,
+            opposite: false,
+            id: 'B',
+            allowDecimals: false,   
+            labels: {
+              enabled: false,
+            }, 
+            title: {
+              enabled: false,
+            } 
+          },
+          {
+            title: {
+              text: 'Hum in %'
+            },
+            min: 0,
+            max: 100,
+            id: 'D',                
+            allowDecimals: false,
+            labels: {
+              enabled: false,
+            }, 
+            title: {
+              enabled: false,
+            } 
+          }
+          ],
           exporting: {
             enabled: true,
             csv: {
@@ -344,6 +358,7 @@
               step: channelKeys[channelIndex].fieldList[fieldIndex].step,
               dashStyle: channelKeys[channelIndex].fieldList[fieldIndex].dashStyle,
               lineWidth: channelKeys[channelIndex].fieldList[fieldIndex].lineWidth ? channelKeys[channelIndex].fieldList[fieldIndex].lineWidth : 1,
+              color: channelKeys[channelIndex].fieldList[fieldIndex].color,
             });
           }
         }
