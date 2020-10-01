@@ -10,6 +10,7 @@
         var nextStart, nextStop;
         var esp32time, ventConfig;
         var sensor, vent;
+        var min, max;
         function loadValues() {
             var xh = new XMLHttpRequest();
             xh.onreadystatechange = function () {
@@ -19,6 +20,8 @@
                         var t = res.config.time;
                         esp32time = t.hour + ":" + t.minute + ":" + t.second + " " + t.day + "-" + t.month + "-" + t.year;
                         ventConfig = res.config.ventilation;
+                        min = res.config.min;
+                        max = res.config.max;
                         nextStart = res.data.nextStart;
                         nextStop = res.data.nextStop;
                         sensor = res.action.sensor;
@@ -36,6 +39,10 @@
             document.getElementById("esp32time").innerText = esp32time;
             document.getElementById("nextStart").innerText = nextStart;
             document.getElementById("nextStop").innerText = nextStop;
+            document.getElementById("min").value = min;
+            document.getElementById("minValue").innerText = min;
+            document.getElementById("max").value = max;
+            document.getElementById("maxValue").innerText = max;
             for (i = 0; i < 24; i++) {
                 document.getElementById("ventConfig" + i).value = ventConfig[i];
                 document.getElementById("ventConfig" + i + "value").innerText = ventConfig[i];
@@ -61,8 +68,14 @@
             }
             url = url + "sensor=" + document.getElementById("sensor").checked + "&";
             url = url + "vent=" + document.getElementById("vent").checked + "&";
+            url = url + "min=" + document.getElementById("min").value + "&";
+            url = url + "max=" + document.getElementById("max").value + "&";
             xh.open("PUT", url, true);
             xh.send(null);
+
+            if (xh.status === 200) {
+                window.history.back();
+            }
         };
 
         function sendTimeResetRequest() {
@@ -101,6 +114,18 @@
                     <span class="slider2 round"></span>
                 </label>
             </span>
+        </div>
+        <div class="vent">
+            <span class="hour">Min</span>
+            <input type="range" min="500" max="1200" value="600" class="slider" id="min"
+                oninput="minValue.value=value">
+            <output id="minValue" class="number">-</output>
+        </div>
+        <div class="vent">
+            <span class="hour">Max</span>
+            <input type="range" min="500" max="1200" value="1000" class="slider" id="max"
+                oninput="maxValue.value=value">
+            <output id="maxValue" class="number">-</output>
         </div>
         <div class="vent">
             <span class="hour">0</span>
@@ -247,7 +272,7 @@
             <output id="ventConfig23value" class="number">-</output>
         </div>
         <button class="btn success" onclick="window.history.back();">Back</button>
-        <button id="save2" class="btn success" onclick="sendRequest();window.history.back();" disabled>Save</button>
+        <button id="save2" class="btn success" onclick="sendRequest();" disabled>Save</button>
         <div class="time"><span id="esp32time" /></div>
         <div class="time"><span id="nextStart" /></div>
         <div class="time"><span id="nextStop" /></div>

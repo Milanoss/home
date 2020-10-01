@@ -8,9 +8,9 @@
 
 // #define RX_PIN 10      // Rx pin which the MHZ19 Tx pin is attached to
 // #define TX_PIN 11      // Tx pin which the MHZ19 Rx pin is attached to
-#define RX_PIN 13      // Rx pin which the MHZ19 Tx pin is attached to
-#define TX_PIN 15      // Tx pin which the MHZ19 Rx pin is attached to
-#define BAUDRATE 9600  // Native to the sensor (do not change)
+#define RX_PIN 13     // Rx pin which the MHZ19 Tx pin is attached to
+#define TX_PIN 15     // Tx pin which the MHZ19 Rx pin is attached to
+#define BAUDRATE 9600 // Native to the sensor (do not change)
 
 const String wifi_name = "TP-LINK_GUEST_F092";
 const String wifi_pass = "1takovenormalnipripojeni2takovenormalnipripojeni3#";
@@ -20,19 +20,19 @@ unsigned long previousMillis = 0;
 
 HTU21D myHTU21D(HTU21D_RES_RH12_TEMP14);
 
-MHZ19 myMHZ19;  // Constructor for MH-Z19 class
+MHZ19 myMHZ19; // Constructor for MH-Z19 class
 // SoftwareSerial mySerial(RX_PIN, TX_PIN);  // Uno example
 // HardwareSerial mySerial(1);
 
-unsigned long getDataTimer = 0;  // Variable to store timer interval
+unsigned long getDataTimer = 0; // Variable to store timer interval
 unsigned long sendTimer = 0;
 int CO2;
 float temperature = 0;
 float humidity = 0;
 
-RunningMedian co2samples = RunningMedian(7);
-RunningMedian tempSamples = RunningMedian(7);
-RunningMedian humSamples = RunningMedian(7);
+RunningMedian co2samples = RunningMedian(3);
+RunningMedian tempSamples = RunningMedian(5);
+RunningMedian humSamples = RunningMedian(5);
 
 #ifdef U8X8_HAVE_HW_SPI
 #include <SPI.h>
@@ -41,7 +41,7 @@ RunningMedian humSamples = RunningMedian(7);
 #include <Wire.h>
 #endif
 
-U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, /* reset=*/U8X8_PIN_NONE);  // Adafruit ESP8266/32u4/ARM Boards + FeatherWing OLED
+U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, /* reset=*/U8X8_PIN_NONE); // Adafruit ESP8266/32u4/ARM Boards + FeatherWing OLED
 
 static unsigned char teplota[] = {
     0x80,
@@ -112,20 +112,24 @@ static unsigned char kapka[] = {
     0x00,
 };
 
-void WIFI_Connect() {
+void WIFI_Connect()
+{
     WiFi.disconnect();
     // Serial.println("Connecting to WiFi...");
     WiFi.mode(WIFI_STA);
     WiFi.begin(wifi_name, wifi_pass);
 
-    for (int i = 0; i < 60; i++) {
-        if (WiFi.status() != WL_CONNECTED) {
+    for (int i = 0; i < 60; i++)
+    {
+        if (WiFi.status() != WL_CONNECTED)
+        {
             delay(250);
             // Serial.print(".");
             delay(250);
         }
     }
-    if (WiFi.status() == WL_CONNECTED) {
+    if (WiFi.status() == WL_CONNECTED)
+    {
         // Serial.println("");
         // Serial.println("WiFi Connected");
         // Serial.println("IP address: ");
@@ -133,7 +137,8 @@ void WIFI_Connect() {
     }
 }
 
-void sendData() {
+void sendData()
+{
     // IPAddress ip = WiFi.gatewayIP();
     WiFiClient client;
     HTTPClient httpClient1;
@@ -141,7 +146,8 @@ void sendData() {
     float medianCo2 = co2samples.getMedian();
     float medianHum = humSamples.getMedian();
     float medianTemp = tempSamples.getMedian();
-    if (isnan(medianCo2) || isnan(medianHum) || isnan(medianTemp)) {
+    if (isnan(medianCo2) || isnan(medianHum) || isnan(medianTemp))
+    {
         return;
     }
     String co2 = String((int)medianCo2);
@@ -149,41 +155,35 @@ void sendData() {
     String temp = String(medianTemp);
     String url = "http://192.168.0.109/api/sensor?CO2=" + co2 + "&HUM=" + hum + "&TEMP=" + temp;
     // Serial.println(url);
-    if (httpClient1.begin(client, url)) {
+    if (httpClient1.begin(client, url))
+    {
         int httpCode = httpClient1.GET();
         // Serial.printf("Sending code: %d\n", httpCode);
         String payload = httpClient1.getString();
-        if (httpCode == HTTP_CODE_OK) {
+        if (httpCode == HTTP_CODE_OK)
+        {
             // Serial.print("Data sent");
-        } else {
+        }
+        else
+        {
             // Serial.println("Cannot send data!");
         }
         httpClient1.end();
-    } else {
+    }
+    else
+    {
         // Serial.println("[HTTP} Unable to connect");
     }
 }
 
-void printErrorCode() {
+void printErrorCode()
+{
     // Serial.println("Communication error. Error Code: ");  // *Print error code using the library variable
     // Serial.println(myMHZ19.errorCode);                    //  holds the last recieved code
 }
 
-void setRange(int range) {
-    // Serial.println("Setting range..");
-
-    myMHZ19.setRange(range);  // request new range write
-
-    // if ((myMHZ19.errorCode == RESULT_OK) && (myMHZ19.getRange() == range)) //RESULT_OK is an alias from the library,
-    // Serial.println("Range successfully applied.");
-
-    // else
-    // {
-    // printErrorCode();
-    // }
-}
-
-void show() {
+void show()
+{
     char tempStr[10];
     sprintf(tempStr, "%0.1f", temperature);
     String tempStr2 = String(tempStr) + "°C";
@@ -209,8 +209,9 @@ void show() {
     u8g2.sendBuffer();
 }
 
-void setup() {
-    Serial.begin(9600);  // For ESP32 baudarte is 115200 etc.
+void setup()
+{
+    Serial.begin(9600); // For ESP32 baudarte is 115200 etc.
     // Serial.println("setup1");
 
     // mySerial.begin(BAUDRATE);
@@ -220,11 +221,15 @@ void setup() {
     myMHZ19.begin(Serial);
     Serial.swap();
 
-    setRange(2000);
+    myMHZ19.setRange(2000);
 
+    // myMHZ19.calibrateZero();
+
+    myMHZ19.setSpan(2000);
     myMHZ19.autoCalibration(false);
 
-    while (myHTU21D.begin() != true) {
+    while (myHTU21D.begin() != true)
+    {
         Serial.print(F("HTU21D error"));
         delay(5000);
     }
@@ -233,21 +238,24 @@ void setup() {
 
     u8g2.begin();
     u8g2.enableUTF8Print();
-    u8g2.setContrast(100);  // 0-255
+    u8g2.setContrast(50); // 0-255
 
     // delay(120000);
 }
 
-void validate(int CO2) {
+void validate(int CO2)
+{
     static byte timeout = 0;
-    if (CO2 < 390 || CO2 > 2000) {
+    if (CO2 < 390 || CO2 > 2000)
+    {
         // Serial.println("Waiting for verification....");
         timeout++;
-        if (timeout > 20) {
+        if (timeout > 20)
+        {
             // Serial.println("Failed to stablise.");
             // Serial.println("Requesting MHZ19 reset sequence");
 
-            myMHZ19.recoveryReset();  // Recovery Reset
+            myMHZ19.recoveryReset(); // Recovery Reset
 
             // Serial.println("Restarting MHZ19.");
             // Serial.println("Waiting for boot duration to elapse.....");
@@ -256,20 +264,27 @@ void validate(int CO2) {
 
             // Serial.println("Waiting for boot stabisation...");
 
-            for (byte i = 0; i < 3; i++) {
-                myMHZ19.stablise();  // Stablisation check
+            for (byte i = 0; i < 3; i++)
+            {
+                myMHZ19.verify(); // verification check
+
                 if (myMHZ19.errorCode == RESULT_OK)
                     break;
             }
         }
+    } else {
+        timeout = 0;
     }
 }
 
-void loop() {
+void loop()
+{
     unsigned long currentMillis = millis();
 
-    if (currentMillis - previousMillis >= interval) {
-        if (WiFi.status() != WL_CONNECTED) {
+    if (currentMillis - previousMillis >= interval)
+    {
+        if (WiFi.status() != WL_CONNECTED)
+        {
             // Serial.println("wifi disconnected ");
             WIFI_Connect();
         }
@@ -282,17 +297,20 @@ void loop() {
     //     Serial.println("CALIBRATION");
     //     myMHZ19.calibrateZero();
     // }
-    if (millis() - getDataTimer >= 20000) {
+    if (millis() - getDataTimer >= 20000)
+    {
         humidity = myHTU21D.readCompensatedHumidity();
         temperature = myHTU21D.readTemperature();
         // Serial.print("Temperature (C): ");
         // Serial.println(temperature);
         // Serial.print("Humidity (%): ");
         // Serial.println(humidity);
-        if (temperature != HTU21D_ERROR) {
+        if (temperature != HTU21D_ERROR)
+        {
             tempSamples.add(temperature);
         }
-        if (humidity != HTU21D_ERROR) {
+        if (humidity != HTU21D_ERROR)
+        {
             humSamples.add(humidity);
         }
 
@@ -305,9 +323,9 @@ void loop() {
         // Serial.println(CO2);
         validate(CO2);
         // Temp = myMHZ19.getTemperature(true, true);
-        if (myMHZ19.errorCode == RESULT_OK && CO2 > 0 && CO2 < 5000) {
-            co2samples.add(CO2);
-        }
+        // if (myMHZ19.errorCode == RESULT_OK && CO2 > 0 && CO2 < 5000) {
+        co2samples.add(CO2);
+        // }
         // Serial.println("getCO2(false)" + String(myMHZ19.getCO2(false)));
         // Serial.println("getCO2(true)" + String(myMHZ19.getCO2(true)));
         // Serial.println("getCO2Raw(false)" + String(myMHZ19.getCO2Raw(false)));
@@ -317,7 +335,8 @@ void loop() {
         getDataTimer = millis();
     }
 
-    if (millis() - sendTimer >= 120000) {
+    if (millis() - sendTimer >= 120000)
+    {
         sendData();
         sendTimer = millis();
     }

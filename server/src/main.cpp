@@ -22,8 +22,6 @@
 // #define WIFI_NAME "Tieto Guest"
 // #define WIFI_PASS "k9wh1sper"
 
-#define SENSOR_CO2_MAX 1000
-
 #define TS_TEMP_OUT 0
 #define TS_HUMI_OUT 1
 #define TS_VENT 2
@@ -46,6 +44,9 @@ struct Weather {
 
 bool useSensor = true;
 bool useVent = true;
+
+int min1 = 600;
+int max1 = 1000;
 
 String thingData[] = {"", "", "", "", "", "", "", ""};
 String lastData[] = {"", "", "", "", "", "", "", ""};
@@ -243,7 +244,7 @@ void countNextTimes(time_t tNow) {
 
 void startVent(bool force) {
     String co2 = getCorrectLastData(TS_CO2);
-    if (!force && useSensor && co2 && co2.toInt() < 1000) {
+    if (!force && useSensor && co2 && co2.toInt() < min1) {
         log("Vent auto disabled value=" + co2 + ", time=" + formatTime(lastDataTime[TS_CO2]));
         countNextTimes(now());
         return;
@@ -308,7 +309,7 @@ void sensorRequest(AsyncWebServerRequest *request) {
         log("Sensor CO2: " + value);
         int intValue = value.toInt();
         setValue(TS_CO2, value);
-        if (SENSOR_CO2_MAX < intValue && useSensor) {
+        if (max1 < intValue && useSensor) {
             handleManVent(15, false);
         }
     }
@@ -402,6 +403,20 @@ void handleApiPut(AsyncWebServerRequest *request) {
         EEPROM.write(25, useVent);
         log("Ventilation: " + vent);
     }
+    if (request->hasParam("min")) {
+        AsyncWebParameter *vt = request->getParam("min");
+        String minStr = vt->value().c_str();
+        min1 = minStr.toInt();
+        EEPROM.write(26, min1);
+        log("Min: " + min1);
+    }
+    if (request->hasParam("max")) {
+        AsyncWebParameter *vt = request->getParam("max");
+        String maxStr = vt->value().c_str();
+        max1 = maxStr.toInt();
+        EEPROM.write(27, max1);
+        log("Max: " + max1);
+    }
     for (int i = 0; i < 24; i++) {
         if (request->hasParam(String(i))) {
             AsyncWebParameter *t = request->getParam(String(i));
@@ -436,6 +451,8 @@ void handleApiGet(AsyncWebServerRequest *request) {
     json += "  \"sensor\":" + toString(useSensor) + "\n";
     json += " },";
     json += " \"config\":{\n";
+    json += "  \"min\": \"" + String(min1) + "\",\n";
+    json += "  \"max\": \"" + String(max1) + "\",\n";
     json += "  \"version\": \"";
     json += VERSION;
     json += "\",\n";
@@ -545,12 +562,14 @@ void setup() {
     server.on("/log", HTTP_GET, handleApiLog);
     server.begin();
 
-    EEPROM.begin(27);
+    EEPROM.begin(29);
     for (int i = 0; i < 24; i++) {
         ventConfig[i] = checkValue(EEPROM.read(i));
     }
     useSensor = (boolean)EEPROM.read(24);
     useVent = (boolean)EEPROM.read(25);
+    min1 = EEPROM.read(26);
+    max1 = EEPROM.read(27);
 
     thingDataValid = false;
     updateTime();
