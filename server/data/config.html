@@ -59,6 +59,7 @@
             xh.onreadystatechange = function () {
                 if (xh.readyState == 4) {
                     if (xh.status == 200) {
+                        window.history.back();
                     }
                 }
             };
@@ -72,10 +73,6 @@
             url = url + "max=" + document.getElementById("max").value + "&";
             xh.open("PUT", url, true);
             xh.send(null);
-
-            if (xh.status === 200) {
-                window.history.back();
-            }
         };
 
         function sendTimeResetRequest() {
@@ -96,7 +93,7 @@
 <body onload="onBodyLoad()">
     <div class='container'>
         <button class="btn success" onclick="window.history.back();">Back</button>
-        <button id="save1" class="btn success" onclick="sendRequest();window.history.back();" disabled>Save</button>
+        <button id="save1" class="btn success" onclick="sendRequest();" disabled>Save</button>
         <button class="btn success" onclick="sendTimeResetRequest();">Time</button>
         <div
             style="display: flex; justify-content: space-around; height: 50px; align-items: center; line-height: 34px;">
