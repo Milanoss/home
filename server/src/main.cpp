@@ -407,15 +407,15 @@ void handleApiPut(AsyncWebServerRequest *request) {
         AsyncWebParameter *vt = request->getParam("min");
         String minStr = vt->value().c_str();
         min1 = minStr.toInt();
-        EEPROM.write(26, min1);
-        log("Min: " + min1);
+        EEPROM.writeShort(26, min1);
+        log("Min: " + String(min1));
     }
     if (request->hasParam("max")) {
         AsyncWebParameter *vt = request->getParam("max");
         String maxStr = vt->value().c_str();
         max1 = maxStr.toInt();
-        EEPROM.write(27, max1);
-        log("Max: " + max1);
+        EEPROM.writeShort(28, max1);
+        log("Max: " + String(max1));
     }
     for (int i = 0; i < 24; i++) {
         if (request->hasParam(String(i))) {
@@ -498,9 +498,9 @@ void handleApiGet(AsyncWebServerRequest *request) {
     request->send(response);
 }
 
-int checkValue(int val) {
-    if (val < 0 || val > 60) {
-        return 10;
+int checkValue(int val, int min2, int max2, int default2) {
+    if (val < min2 || val > max2) {
+        return default2;
     } else {
         return val;
     }
@@ -562,14 +562,14 @@ void setup() {
     server.on("/log", HTTP_GET, handleApiLog);
     server.begin();
 
-    EEPROM.begin(29);
+    EEPROM.begin(31);
     for (int i = 0; i < 24; i++) {
-        ventConfig[i] = checkValue(EEPROM.read(i));
+        ventConfig[i] = checkValue(EEPROM.read(i), 0, 60, 10);
     }
     useSensor = (boolean)EEPROM.read(24);
     useVent = (boolean)EEPROM.read(25);
-    min1 = EEPROM.read(26);
-    max1 = EEPROM.read(27);
+    min1 = checkValue(EEPROM.readShort(26), 400, 1000, 500);
+    max1 = checkValue(EEPROM.readShort(28), 400, 2000, 1000);
 
     thingDataValid = false;
     updateTime();
