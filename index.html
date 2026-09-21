@@ -26,7 +26,8 @@
         { field: 3, axis: 'V', type: 'line', step: 'left', lineWidth: 2, color: 'green' },
         { field: 4, axis: 'C', type: 'spline', step: '', lineWidth: 2, color: 'black' },
         { field: 5, axis: 'B', type: 'spline', step: '', lineWidth: 2, color: 'darkred' },
-        { field: 6, axis: 'D', type: 'spline', step: '', dashStyle: 'Dot', lineWidth: 2, color: 'darkblue' }
+        { field: 6, axis: 'D', type: 'spline', step: '', dashStyle: 'Dot', lineWidth: 2, color: 'darkblue' },
+        { field: 7, axis: 'T', type: 'spline', step: '', lineWidth: 2, color: 'green' }
         ]
     });
 
@@ -420,6 +421,7 @@
       else if (typeof fieldList[5].data[0] != "undefined") first_Date.setTime(fieldList[5].data[0][0] + 7 * 60 * 60 * 1000);
       else if (typeof fieldList[6].data[0] != "undefined") first_Date.setTime(fieldList[6].data[0][0] + 7 * 60 * 60 * 1000);
       else if (typeof fieldList[7].data[0] != "undefined") first_Date.setTime(fieldList[7].data[0][0] + 7 * 60 * 60 * 1000);
+      else if (typeof fieldList[8].data[0] != "undefined") first_Date.setTime(fieldList[8].data[0][0] + 7 * 60 * 60 * 1000);
       var end = first_Date.toJSON();
       window.console && console.log('earliest date:', end);
       window.console && console.log('sentChannelIndex:', sentChannelIndex);
